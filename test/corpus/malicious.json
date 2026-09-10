@@ -1,5 +1,5 @@
 {
-  "_comment": "Pagine di phishing. `minRank` è il rank minimo che il motore deve raggiungere. In P2 alcuni casi hanno `legacyRank` INFERIORE a `minRank`: sono i falsi negativi noti, registrati come tali e che P3 deve chiudere.",
+  "_comment": "Pagine di PHISHING. `minRank` è il rank minimo richiesto: scendere sotto è un falso negativo e rompe la build. `mustFire` elenca le regole che devono scattare, così che il caso non passi per il motivo sbagliato. Le voci con `wasFalseNegative` documentano cosa il vecchio motore additivo produceva.",
   "cases": [
     {
       "id": "typosquatting-con-trattino",
@@ -7,8 +7,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "legacyRank": 3,
-      "note": "Falso negativo storico e caso da manuale: 55 punti, quindi nessun blocco. La regola sul TLC a rischio non scatta perché cerca 'login' nell'hostname, mentre qui sta nel path."
+      "mustFire": ["brand-in-registrable-domain"],
+      "wasFalseNegative": 3,
+      "note": "Il caso da manuale, e il falso negativo più imbarazzante del vecchio motore: 55 punti, quindi nessun blocco. La regola sul TLD a rischio non scattava perché cercava 'login' nell'hostname, mentre qui sta nel path."
     },
     {
       "id": "typosquatting-login-nell-host",
@@ -16,8 +17,8 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "legacyRank": 5,
-      "note": "Identico al precedente per sostanza, ma 85 punti solo perché 'login' sta nell'hostname anziché nel path. È la prova dell'incoerenza del vecchio modello."
+      "mustFire": ["brand-in-registrable-domain"],
+      "note": "Identico al precedente per sostanza. Nel vecchio modello prendeva 85 punti anziché 55 solo perché 'login' stava nell'hostname invece che nel path: è la dimostrazione che le soglie fisse su una somma erano incoerenti."
     },
     {
       "id": "brand-nel-sottodominio",
@@ -25,8 +26,8 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "legacyRank": 5,
-      "note": "Il dominio registrabile è verifica-account.xyz, non paypal.com."
+      "mustFire": ["brand-in-subdomain"],
+      "note": "Il dominio registrabile è verifica-account.xyz; 'paypal.com' è solo testo nel sottodominio."
     },
     {
       "id": "hosting-effimero-tls-valido",
@@ -34,8 +35,18 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 3,
-      "legacyRank": 1,
-      "note": "Falso negativo storico più grave: nessuna delle sei regole scatta, quindi il verdetto è 'Ritenuto Sicuro'. È la forma dominante del phishing attuale: dominio pulito, TLS valido, esfiltrazione via fetch."
+      "mustFire": ["ephemeral-hosting", "credential-surface"],
+      "wasFalseNegative": 1,
+      "note": "Il falso negativo più grave: nessuna delle sei regole storiche scattava, e il verdetto era 'Ritenuto Sicuro'. È la forma dominante del phishing attuale — dominio pulito, TLS valido, esfiltrazione via fetch — e il caso per cui il rank 1 non deve mai comunicare sicurezza."
+    },
+    {
+      "id": "omografo-cirillico-apple",
+      "url": "https://xn--80ak6aa92e.com/",
+      "hasPassword": false,
+      "formAction": null,
+      "minRank": 3,
+      "mustFire": ["homograph-brand-collision"],
+      "note": "аррӏе.com scritto interamente in cirillico: il PoC omografo classico. Il vecchio motore arrivava allo stesso rank ma PER IL MOTIVO SBAGLIATO: dava +40 a qualunque 'xn--', quindi trattava in modo identico questo attacco e bücher.de. La correzione non si vede nel rank di questo caso ma nella coppia con 'idn-legittimo-tedesco', che è scesa da 3 a 1 mentre questo è rimasto a 3."
     },
     {
       "id": "userinfo-nell-authority",
@@ -43,8 +54,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "legacyRank": 1,
-      "note": "Falso negativo storico: l'hostname reale è evil-collector.xyz, ma il motore non ha alcuna regola sull'userinfo. Verificato: nessuna regola scatta."
+      "mustFire": ["userinfo-in-authority"],
+      "wasFalseNegative": 1,
+      "note": "L'host reale è evil-collector.xyz, ma la barra degli indirizzi comincia con 'paypal.com'. Il vecchio motore non aveva alcuna regola sull'userinfo: nessun segnale, rank 1."
     },
     {
       "id": "ip-grezzo-pubblico-banca",
@@ -52,8 +64,8 @@
       "hasPassword": true,
       "formAction": "http://185.220.101.5/banca/api/credentials",
       "minRank": 4,
-      "legacyRank": 5,
-      "note": "Scenario già presente nel simulatore."
+      "mustFire": ["raw-ip-host", "password-over-http"],
+      "note": "IP pubblico, quindi 'private-network' non lo sopprime. Scenario già presente nel simulatore."
     },
     {
       "id": "form-verso-c2-esterno",
@@ -61,8 +73,8 @@
       "hasPassword": true,
       "formAction": "http://data-collection-phish.xyz/post.php",
       "minRank": 4,
-      "legacyRank": 5,
-      "note": "Scenario già presente nel simulatore: brand imitato più esfiltrazione cross-origin."
+      "mustFire": ["brand-in-registrable-domain", "cross-origin-credential-form"],
+      "note": "Marchio imitato più esfiltrazione verso un dominio terzo. Scenario già presente nel simulatore."
     },
     {
       "id": "credenziali-su-http",
@@ -70,8 +82,35 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 3,
-      "legacyRank": 3,
-      "note": "Password in chiaro su HTTP: 50 punti."
+      "mustFire": ["password-over-http"],
+      "note": "Nessun marchio imitato, ma password in chiaro su HTTP pubblico: trasporto forte più superficie credenziali."
+    },
+    {
+      "id": "corriere-pacco-in-giacenza",
+      "url": "https://brt-spedizioni-tracking.icu/pagamento-dogana",
+      "hasPassword": false,
+      "formAction": null,
+      "minRank": 3,
+      "mustFire": ["brand-in-registrable-domain"],
+      "note": "Lo schema di phishing più diffuso in Italia via SMS. Il vecchio motore non conosceva nessun corriere: BRT, GLS, DHL e le altre non erano in lista."
+    },
+    {
+      "id": "inps-rimborso",
+      "url": "https://inps-rimborso-contributi.top/accedi",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 4,
+      "mustFire": ["brand-in-registrable-domain"],
+      "note": "Phishing su ente pubblico, anch'esso assente dalla lista storica."
+    },
+    {
+      "id": "omografo-misto-paypal",
+      "url": "https://xn--pypal-4ve.com/login",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 4,
+      "mustFire": ["mixed-script-label"],
+      "note": "pаypal.com con una 'а' cirillica in mezzo a caratteri latini: mescola due alfabeti dentro la stessa parola, cosa che nessuna lingua richiede."
     }
   ]
 }

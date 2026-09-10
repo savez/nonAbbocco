@@ -1,5 +1,5 @@
 {
-  "_comment": "Siti legittimi. `maxRank` è il rank massimo accettabile: superarlo è un falso positivo. In P2 alcuni casi hanno `legacyRank` diverso da `maxRank`: sono i falsi positivi noti, registrati come tali e che P3 deve chiudere.",
+  "_comment": "Siti LEGITTIMI. `maxRank` è il rank massimo accettabile: superarlo è un falso positivo e rompe la build. Le voci con `wasFalsePositive` documentano un difetto che il vecchio motore additivo aveva e che il modello a categorie ha chiuso: servono da regressione, non da cronaca.",
   "cases": [
     {
       "id": "poste-italiane-reale",
@@ -7,8 +7,8 @@
       "hasPassword": true,
       "formAction": null,
       "maxRank": 1,
-      "legacyRank": 3,
-      "note": "Falso positivo storico: il brand 'poste' matcha per substring e l'allowlist accetta solo poste.it/.com, quindi il sito vero di Poste viene marcato come typosquatting. La voce 'posteitaliane' nell'array è codice morto perché 'poste' matcha prima e fa break."
+      "wasFalsePositive": 3,
+      "note": "Il vecchio motore lo marcava come typosquatting di Poste: 'poste' matchava per sottostringa e l'allowlist accettava solo poste.it/.com. Ora posteitaliane.it è un dominio legittimo dichiarato, quindi 'trusted-brand-domain' sopprime l'identità."
     },
     {
       "id": "poste-apex",
@@ -16,8 +16,15 @@
       "hasPassword": true,
       "formAction": null,
       "maxRank": 1,
-      "legacyRank": 1,
-      "note": "Passa solo perché coincide esattamente con l'allowlist hardcoded."
+      "note": "Sentinella: passava anche prima, deve continuare a passare."
+    },
+    {
+      "id": "postepay",
+      "url": "https://www.postepay.it/",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 1,
+      "note": "Terzo dominio dello stesso gruppo: verifica che l'allowlist per marchio copra tutti i domini, non solo quello principale."
     },
     {
       "id": "microsoft-login-reale",
@@ -25,8 +32,8 @@
       "hasPassword": true,
       "formAction": null,
       "maxRank": 1,
-      "legacyRank": 3,
-      "note": "Falso positivo storico: è la pagina di login Microsoft vera."
+      "wasFalsePositive": 3,
+      "note": "È la pagina di login Microsoft vera. Il vecchio motore la marcava perché microsoftonline.com non è microsoft.com."
     },
     {
       "id": "google-uk",
@@ -34,8 +41,8 @@
       "hasPassword": false,
       "formAction": null,
       "maxRank": 1,
-      "legacyRank": 3,
-      "note": "Falso positivo storico: l'allowlist non conosce i ccTLD."
+      "wasFalsePositive": 3,
+      "note": "Falso positivo storico: l'allowlist non conosceva i ccTLD. Ora il confronto avviene sul dominio registrabile calcolato con la Public Suffix List."
     },
     {
       "id": "amazon-de",
@@ -43,44 +50,60 @@
       "hasPassword": false,
       "formAction": null,
       "maxRank": 1,
-      "legacyRank": 3,
-      "note": "Falso positivo storico: come sopra."
+      "wasFalsePositive": 3,
+      "note": "Come sopra."
+    },
+    {
+      "id": "youtube-dominio-diverso-stesso-gruppo",
+      "url": "https://www.youtube.com/",
+      "hasPassword": false,
+      "formAction": null,
+      "maxRank": 1,
+      "note": "Dominio Google che non contiene 'google': verifica che l'allowlist non dipenda dal nome del marchio."
     },
     {
       "id": "router-lan",
       "url": "http://192.168.1.1/login",
       "hasPassword": true,
       "formAction": null,
-      "maxRank": 2,
-      "legacyRank": 5,
-      "note": "Falso positivo storico grave: IP grezzo (+45) più HTTP con password (+50) = 95, quindi blocco a schermo intero sul router di casa dell'utente."
+      "maxRank": 1,
+      "wasFalsePositive": 5,
+      "note": "Il falso positivo storico più grave: IP grezzo (+45) più HTTP con password (+50) faceva 95, cioè blocco a schermo intero sul router di casa. Ora 'private-network' azzera identità e trasporto."
     },
     {
       "id": "dev-server-loopback",
       "url": "http://127.0.0.1:3000/login",
       "hasPassword": true,
       "formAction": null,
-      "maxRank": 2,
-      "legacyRank": 5,
-      "note": "Falso positivo storico: blocco su ogni dev server locale."
+      "maxRank": 1,
+      "wasFalsePositive": 5,
+      "note": "Bloccava ogni dev server locale."
     },
     {
       "id": "dev-server-localhost",
       "url": "http://localhost:3000/login",
       "hasPassword": true,
       "formAction": null,
-      "maxRank": 2,
-      "legacyRank": 3,
-      "note": "Meno grave del precedente solo perché 'localhost' non è un IP e quindi la regola IP non scatta."
+      "maxRank": 1,
+      "wasFalsePositive": 3,
+      "note": "Hostname a label singola: nessun suffisso pubblico, nessun dominio registrabile, niente da giudicare."
+    },
+    {
+      "id": "nas-rete-privata-porta-alta",
+      "url": "http://192.168.1.50:5001/login",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 1,
+      "note": "NAS domestico: IP privato, HTTP e porta non standard insieme. Tre segnali che in rete pubblica conterebbero, e che qui devono restare tutti soppressi."
     },
     {
       "id": "sso-cross-origin-legittimo",
       "url": "https://app.esempio-azienda.it/signin",
       "hasPassword": true,
       "formAction": "https://login.microsoftonline.com/common/oauth2/authorize",
-      "maxRank": 2,
-      "legacyRank": 4,
-      "note": "Falso positivo storico: il federated login legittimo posta verso un IdP su un altro dominio, che la regola cross-origin (+65) tratta come esfiltrazione."
+      "maxRank": 1,
+      "wasFalsePositive": 4,
+      "note": "Il federated login legittimo posta verso un IdP su un altro dominio. La vecchia regola cross-origin valeva 65 punti e trattava questo come esfiltrazione: puniva i siti onesti e in compenso mancava i kit moderni, che non impostano affatto action."
     },
     {
       "id": "banca-italiana",
@@ -88,17 +111,24 @@
       "hasPassword": false,
       "formAction": null,
       "maxRank": 1,
-      "legacyRank": 1,
-      "note": "Passa già oggi, perché www.intesasanpaolo.com finisce per '.intesasanpaolo.com' e quindi l'allowlist lo riconosce. Serve da sentinella: dopo P3 deve continuare a passare."
+      "note": "Sentinella su un marchio bancario."
     },
     {
-      "id": "idn-legittimo",
-      "url": "https://xn--80ak6aa92e.com/",
+      "id": "idn-legittimo-tedesco",
+      "url": "https://xn--bcher-kva.de/",
+      "hasPassword": false,
+      "formAction": null,
+      "maxRank": 1,
+      "wasFalsePositive": 3,
+      "note": "bücher.de: dominio IDN perfettamente legittimo. Il vecchio motore dava +40 alla sola presenza di 'xn--', penalizzando qualunque dominio non anglofono. Ora il segnale nasce solo da mixed-script dentro una label o da collisione di skeleton con un marchio, e qui non c'è nessuna delle due."
+    },
+    {
+      "id": "hosting-effimero-progetto-onesto",
+      "url": "https://documentazione-progetto.github.io/guida/",
       "hasPassword": false,
       "formAction": null,
       "maxRank": 2,
-      "legacyRank": 3,
-      "note": "Falso positivo storico: qualunque dominio IDN prende +40 per la sola presenza di 'xn--', senza verificare mixed-script o confondibilità."
+      "note": "Moltissimi progetti legittimi vivono su hosting gratuito. Per questo 'ephemeral-hosting' è una regola debole: da sola non deve produrre un allarme, serve la congiunzione con una richiesta di credenziali."
     }
   ]
 }

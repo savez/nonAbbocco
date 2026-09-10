@@ -1,203 +1,449 @@
 /**
- * NonAbbocco — motore di scoring
+ * NonAbbocco — motore di scoring.
  *
  * ESM PURO: nessun accesso a `window`, `document` o `chrome`. Tutto entra
- * come segnali e tutto esce come verdetto, così che questo file sia l'unica
- * definizione del comportamento e sia testabile con `node --test`.
+ * come segnali e tutto esce come verdetto. È l'unica definizione del
+ * comportamento del motore, ed è per questo testabile con `node --test`.
  *
- * Perché è importante che sia l'unica: prima di questa estrazione il motore
- * esisteva in DUE copie divergenti — una in content.js e una incollata dentro
- * simulator.html, con pesi e liste diversi. La demo pubblica mostrava numeri
- * che l'estensione non avrebbe mai prodotto.
+ * Non reintrodurre una seconda copia di queste euristiche. Il progetto ne ha
+ * già sofferto: esistevano due versioni divergenti dello scoring, una in
+ * content.js e una incollata dentro simulator.html, con pesi diversi, e la
+ * demo pubblica mostrava numeri che l'estensione non avrebbe mai prodotto.
  *
- * ATTENZIONE — FASE P2: questo file riproduce il comportamento STORICO di
- * content.js, bug inclusi, di proposito. Serve come rete di sicurezza per il
- * refactoring: i test registrano cosa il motore fa *oggi*. Le correzioni
- * arrivano in P3, e in quel commit le aspettative dei test si ribaltano in
- * modo visibile nel diff.
+ * ─── PERCHÉ NON UNA SOMMA DI PUNTI ───────────────────────────────────────────
+ *
+ * Il modello precedente sommava punti e confrontava il totale con soglie
+ * fisse. Produceva verdetti indistinguibili per situazioni opposte:
+ *
+ *     paypal-secure.xyz/login   →  55 punti  →  rank 3
+ *     www.posteitaliane.it      →  55 punti  →  rank 3
+ *
+ * Un attacco da manuale e il sito vero di Poste ricevevano la stessa
+ * risposta. La causa non erano i pesi — ritoccarli avrebbe prodotto una nuova
+ * generazione di incoerenze — ma il fatto di SOMMARE FRA CATEGORIE
+ * INCOMMENSURABILI: 55 significava la stessa cosa qualunque regola l'avesse
+ * generato.
+ *
+ * Qui ogni regola alimenta una delle quattro categorie, ogni categoria
+ * produce un livello di evidenza 0-3 saturato, e il rank è una LOOKUP sulla
+ * tupla dei livelli. Due conseguenze volute:
+ *
+ *   - dieci segnali deboli non superano una prova forte (saturazione);
+ *   - "la pagina chiede una password" da sola non alza mai il rank, perché
+ *     una pagina di login è la cosa più normale del web. Conta solo in
+ *     congiunzione con un problema di identità o di trasporto.
  */
 
-export const LEGACY_KNOWN_BRANDS = [
-  'paypal', 'poste', 'posteitaliane', 'intesasanpaolo', 'unicredit',
-  'bnl', 'ingdirect', 'apple', 'google', 'amazon', 'microsoft', 'netflix', 'facebook'
-];
-
-export const LEGACY_HIGH_RISK_TLDS = [
-  '.xyz', '.top', '.work', '.buzz', '.icu', '.tk', '.ml', '.ga', '.cf', '.gq', '.shop'
-];
-
-const LEGACY_ACCESS_WORDS = ['login', 'account', 'verify'];
+import { RULES } from './rules.js';
+import { RULE_MESSAGES, RANK_LABELS, RANK_SUBTITLES } from './messages.it.js';
+import { registrableDomain, publicSuffixInfo, isEphemeralHosting, normalizeHostname } from './psl.js';
+import { toUnicode, skeleton, isMixedScriptLabel } from './idn.js';
 
 /**
- * Estrae dai dati di navigazione i segnali che le regole di fase `url`
- * sanno leggere. Puro: prende una stringa, non `location`.
+ * @typedef {'identity'|'credentials'|'transport'|'reputation'} Category
+ * @typedef {'veto'|'strong'|'weak'|'suppress'} RuleKind
+ *
+ * @typedef {object} Rule
+ * @property {string} id
+ * @property {RuleKind} kind
+ * @property {'url'|'dom'|'either'} phase
+ * @property {Category} [category]
+ * @property {Category[]} [suppresses]
+ * @property {(signals: any) => object|null} test
+ *
+ * @typedef {object} Verdict
+ * @property {number} rank
+ * @property {Record<Category, number>} categories
+ * @property {Array<{id: string, kind: RuleKind, category: Category|null, params: object, message: string}>} fired
+ * @property {Category[]} suppressed
+ * @property {string|null} veto
+ * @property {'url'|'full'} phase
+ */
+
+export const CATEGORIES = ['identity', 'credentials', 'transport', 'reputation'];
+
+const MAX_LEVEL = 3;
+const CONTRIBUTION = { strong: 2, weak: 1 };
+
+const HIGH_RISK_TLDS = new Set([
+  'xyz', 'top', 'work', 'buzz', 'icu', 'tk', 'ml', 'ga', 'cf', 'gq',
+  'shop', 'click', 'link', 'rest', 'fit', 'surf', 'monster', 'quest', 'cyou', 'sbs'
+]);
+
+const SENSITIVE_FIELD_PATTERNS = [
+  [/\b(otp|codice[-_]?otp|one[-_]?time)\b/i, 'codice OTP'],
+  [/\b(cvv|cvc|cid|security[-_]?code)\b/i, 'CVV della carta'],
+  [/\b(pin)\b/i, 'PIN'],
+  [/\b(iban)\b/i, 'IBAN'],
+  [/\b(codice[-_]?fiscale|cod[-_]?fisc|taxcode)\b/i, 'codice fiscale'],
+  [/\b(card[-_]?number|numero[-_]?carta|pan)\b/i, 'numero di carta'],
+  [/\b(seed|mnemonic|recovery[-_]?phrase|private[-_]?key)\b/i, 'chiave o seed phrase']
+];
+
+const URGENCY_PATTERNS = [
+  /entro\s+\d+\s+(ore|giorni|minuti)/i,
+  /\b(urgente|immediat|sospes|bloccat|scadut|ultimo avviso|verifica obbligatoria)/i,
+  /\b(account will be|suspended|immediately|final notice|expires? (today|soon))\b/i
+];
+
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+/**
+ * Vero per gli indirizzi non raggiungibili da un attaccante remoto: loopback,
+ * RFC1918, link-local, CGNAT e i loro equivalenti IPv6.
+ * @param {string} hostname
+ * @returns {boolean}
+ */
+export function isPrivateAddress(hostname) {
+  const host = normalizeHostname(hostname).replace(/^\[|\]$/g, '');
+
+  if (host === '::1' || host === '::' || host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) {
+    return true;
+  }
+
+  const m = IPV4.exec(host);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  if ([a, b, Number(m[3]), Number(m[4])].some((n) => n > 255)) return false;
+
+  return a === 10 ||
+         a === 127 ||
+         a === 0 ||
+         (a === 192 && b === 168) ||
+         (a === 172 && b >= 16 && b <= 31) ||
+         (a === 169 && b === 254) ||
+         (a === 100 && b >= 64 && b <= 127);
+}
+
+/**
+ * Spezza una stringa nei token che le regole confrontano con i marchi.
+ *
+ * È la differenza fra il matching storico e quello attuale: la ricerca per
+ * SOTTOSTRINGA marcava `timbrature.it` come imitazione di TIM, mentre la
+ * ricerca per TOKEN no, perché "timbrature" non è "tim". È questo che rende
+ * sicuro tenere in lista marchi con nomi brevi.
+ *
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function tokenize(text) {
+  return String(text || '')
+    .toLowerCase()
+    .split(/[^a-z0-9À-ɏͰ-ӿ]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Costruisce i segnali osservabili dal solo URL. È ciò che il service worker
+ * ha a disposizione prima che la pagina esista.
  *
  * @param {string} rawUrl
- * @returns {{hostname: string, protocol: string, pathname: string, valid: boolean}}
+ * @param {{userAllowlisted?: boolean, safeBrowsingThreat?: string|null}} [context]
  */
-export function buildUrlSignals(rawUrl) {
+export function buildUrlSignals(rawUrl, context = {}) {
+  let u;
   try {
-    const u = new URL(rawUrl);
-    return {
-      hostname: u.hostname.toLowerCase(),
-      protocol: u.protocol,
-      pathname: u.pathname,
-      valid: true
-    };
+    u = new URL(rawUrl);
   } catch {
-    return { hostname: '', protocol: '', pathname: '', valid: false };
+    return { valid: false, urlTokens: [], domainTokens: [], subdomainTokens: [], skeletonTokens: [], mixedScriptLabels: [] };
   }
+
+  const hostname = normalizeHostname(u.hostname);
+  const isIp = IPV4.test(hostname) || hostname.includes(':') || /^\[.*\]$/.test(u.hostname);
+  const isOpaqueScheme = u.protocol === 'data:' || u.protocol === 'blob:' || u.protocol === 'javascript:';
+
+  const reg = registrableDomain(hostname, { section: 'ICANN' });
+  const suffixInfo = publicSuffixInfo(hostname);
+  const hostnameUnicode = toUnicode(hostname);
+
+  // Il nome del dominio senza il suffisso: per `paypal-secure.xyz` è
+  // `paypal-secure`, che tokenizzato dà ['paypal','secure'].
+  const domainName = reg.domain && reg.suffix
+    ? reg.domain.slice(0, reg.domain.length - reg.suffix.length - 1)
+    : '';
+
+  const unicodeLabels = hostnameUnicode.split('.');
+  const mixedScriptLabels = unicodeLabels.filter((l) => isMixedScriptLabel(l));
+
+  const port = u.port || '';
+  const defaultPort = (u.protocol === 'https:' && (port === '' || port === '443')) ||
+                      (u.protocol === 'http:' && (port === '' || port === '80'));
+
+  return {
+    valid: true,
+    raw: rawUrl,
+    protocol: u.protocol,
+    hostname,
+    hostnameUnicode,
+    port,
+    hasNonStandardPort: Boolean(port) && !defaultPort,
+    pathname: u.pathname,
+    search: u.search,
+
+    hasUserinfo: Boolean(u.username || u.password),
+    userinfo: u.username || '',
+
+    isIp,
+    isPrivateIp: isIp && isPrivateAddress(hostname),
+    isSingleLabelHost: !isIp && hostname.length > 0 && !hostname.includes('.'),
+    isLocalTld: hostname.endsWith('.local') || hostname.endsWith('.internal') || hostname.endsWith('.localhost'),
+    isOpaqueScheme,
+
+    registrableDomain: reg.domain,
+    publicSuffix: suffixInfo.privateSuffix && isEphemeralHosting(hostname)
+      ? suffixInfo.privateSuffix
+      : reg.suffix,
+    suffixKnown: reg.known,
+    isEphemeralHosting: isEphemeralHosting(hostname),
+    tld: hostname.includes('.') ? hostname.slice(hostname.lastIndexOf('.') + 1) : '',
+    isHighRiskTld: HIGH_RISK_TLDS.has(hostname.slice(hostname.lastIndexOf('.') + 1)),
+
+    // Token per il confronto con i marchi. Il sottodominio è tenuto separato
+    // dal dominio perché "il marchio nel sottodominio di un dominio altrui" è
+    // un segnale diverso, e più forte, di "il marchio nel dominio".
+    domainTokens: tokenize(domainName),
+    subdomainTokens: reg.subdomainLabels.flatMap((l) => tokenize(l)),
+    urlTokens: tokenize(`${hostnameUnicode} ${u.pathname} ${u.search}`),
+    skeletonTokens: tokenize(skeleton(toUnicode(domainName || hostname))),
+    mixedScriptLabels,
+
+    userAllowlisted: Boolean(context.userAllowlisted),
+    safeBrowsingThreat: context.safeBrowsingThreat || null
+  };
 }
 
 /**
- * Segnali che solo il DOM può fornire. Il content script li raccoglie e li
- * spedisce; questo modulo non tocca mai il documento.
+ * Normalizza i segnali che il content script raccoglie dal DOM.
+ * Il content script NON valuta regole: raccoglie e spedisce.
  *
- * @typedef {object} DomSignals
- * @property {number} passwordFieldCount
- * @property {Array<{actionHost: string|null}>} credentialForms
+ * @param {object} raw
+ * @param {object} urlSignals
  */
+export function normalizeDomSignals(raw = {}, urlSignals = {}) {
+  const names = Array.isArray(raw.fieldNames) ? raw.fieldNames.join(' ') : '';
+  const sensitiveFieldNames = SENSITIVE_FIELD_PATTERNS
+    .filter(([re]) => re.test(names))
+    .map(([, label]) => label);
+
+  const credentialForms = (raw.credentialForms || []).map((f) => {
+    const actionHost = f.actionHost ? normalizeHostname(f.actionHost) : null;
+    return {
+      actionHost,
+      actionRegistrableDomain: actionHost ? registrableDomain(actionHost).domain : null
+    };
+  });
+
+  const text = raw.visibleText || '';
+
+  return {
+    passwordFieldCount: Number(raw.passwordFieldCount) || 0,
+    sensitiveFieldNames,
+    credentialForms,
+    title: raw.title || '',
+    titleTokens: tokenize(`${raw.title || ''} ${raw.ogSiteName || ''}`),
+    hasUrgencyText: URGENCY_PATTERNS.some((re) => re.test(text)),
+    registrableDomain: urlSignals.registrableDomain ?? null
+  };
+}
 
 /**
- * Il verdetto storico: punteggio additivo e rank su soglie fisse.
+ * Applica le regole e calcola il verdetto.
  *
- * @param {{hostname: string, protocol: string, pathname: string}} url
- * @param {DomSignals} dom
- * @returns {{score: number, rank: number, anomalies: string[], fired: string[]}}
+ * @param {object} signals
+ * @param {{phase?: 'url'|'full', rules?: Rule[]}} [options]
+ * @returns {Verdict}
  */
-export function evaluateLegacy(url, dom = { passwordFieldCount: 0, credentialForms: [] }) {
-  const { hostname, protocol } = url;
-  let score = 0;
-  const anomalies = [];
+export function evaluate(signals, options = {}) {
+  const phase = options.phase === 'full' ? 'full' : 'url';
+  const rules = options.rules || RULES;
+
+  const applicable = rules.filter((r) =>
+    r.phase === 'either' || r.phase === 'url' || (phase === 'full' && r.phase === 'dom'));
+
   const fired = [];
+  const suppressed = new Set();
+  let veto = null;
 
-  // 1. URL — IP grezzo.
-  // BUG NOTO: non distingue gli indirizzi privati, quindi il router di casa
-  // e i dev server su 127.0.0.1 vengono trattati come phishing.
-  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
-    score += 45;
-    fired.push('legacy-ip-host');
-    anomalies.push("L'indirizzo web è composto da un IP grezzo anziché da un dominio nominale.");
+  // 1. Soppressioni per prime: nessun punteggio sopravvive a un'esenzione.
+  for (const rule of applicable) {
+    if (rule.kind !== 'suppress') continue;
+    const params = rule.test(signals);
+    if (!params) continue;
+    for (const category of rule.suppresses) suppressed.add(category);
+    fired.push(describe(rule, params));
   }
 
-  // 2. URL — punycode.
-  // BUG NOTO: penalizza qualunque IDN legittimo, non solo gli omografi.
-  if (hostname.includes('xn--')) {
-    score += 40;
-    fired.push('legacy-punycode');
-    anomalies.push('Presenza di caratteri punycode (possibile attacco omografo fraudolento).');
+  // 2. Veto: porta direttamente al massimo, senza passare dai livelli.
+  for (const rule of applicable) {
+    if (rule.kind !== 'veto') continue;
+    const params = rule.test(signals);
+    if (!params) continue;
+    veto = rule.id;
+    fired.push(describe(rule, params));
   }
 
-  // 3. URL — imitazione di marchio.
-  // BUG NOTO: `includes` sull'hostname intero e allowlist limitata a .com/.it.
-  // Conseguenza: posteitaliane.it, google.co.uk, amazon.de e
-  // login.microsoftonline.com sono falsi positivi. La voce 'posteitaliane'
-  // dell'array è codice morto, perché 'poste' matcha prima e fa break.
-  for (const brand of LEGACY_KNOWN_BRANDS) {
-    if (hostname.includes(brand)) {
-      const isLegit = hostname === `${brand}.com` || hostname === `${brand}.it` ||
-                      hostname.endsWith(`.${brand}.com`) || hostname.endsWith(`.${brand}.it`);
-      if (!isLegit) {
-        score += 55;
-        fired.push('legacy-brand-impersonation');
-        anomalies.push(`Imitazione o typosquatting del marchio autentico "${brand.toUpperCase()}".`);
-        break;
-      }
-    }
+  // 3. Accumulatori, tenendo strong e weak separati per poter applicare la
+  //    regola che le sole regole debole non superano il livello 1.
+  const strongCount = zeroed();
+  const weakCount = zeroed();
+
+  for (const rule of applicable) {
+    if (rule.kind !== 'strong' && rule.kind !== 'weak') continue;
+    if (suppressed.has(rule.category)) continue;
+    const params = rule.test(signals);
+    if (!params) continue;
+    (rule.kind === 'strong' ? strongCount : weakCount)[rule.category] += 1;
+    fired.push(describe(rule, params));
   }
 
-  // 4. URL — TLD a rischio più parole d'accesso.
-  // BUG NOTO: le parole sono cercate SOLO nell'hostname, mai nel path. Da qui
-  // l'incoerenza fra login-paypal.xyz (scatta) e paypal-secure.xyz/login (no).
-  const matchedTld = LEGACY_HIGH_RISK_TLDS.find(tld => hostname.endsWith(tld));
-  if (matchedTld && LEGACY_ACCESS_WORDS.some(w => hostname.includes(w))) {
-    score += 30;
-    fired.push('legacy-risky-tld');
-    anomalies.push(`Dominio con estensione economica a rischio (${matchedTld}) abbinata a parole d'accesso.`);
+  const categories = zeroed();
+  for (const category of CATEGORIES) {
+    if (suppressed.has(category)) continue;
+    const raw = strongCount[category] * CONTRIBUTION.strong + weakCount[category] * CONTRIBUTION.weak;
+    // Senza alcuna evidenza forte il livello si ferma a 1: tre indizi deboli
+    // non valgono una prova.
+    const ceiling = strongCount[category] > 0 ? MAX_LEVEL : Math.min(1, raw);
+    categories[category] = Math.min(raw, ceiling, MAX_LEVEL);
   }
 
-  // 5. DOM — credenziali su HTTP in chiaro.
-  if (dom.passwordFieldCount > 0 && protocol === 'http:') {
-    score += 50;
-    fired.push('legacy-http-password');
-    anomalies.push('Invio credenziali di sicurezza su protocollo HTTP non crittografato.');
-  }
+  if (veto) categories.reputation = MAX_LEVEL;
 
-  // 6. DOM — form di login che invia a un host esterno.
-  // BUG NOTO: dipende da <form action>, che i kit moderni non impostano
-  // affatto (esfiltrano via fetch). Inoltre confronta l'hostname esatto,
-  // quindi www.example.com e example.com risultano estranei fra loro.
-  for (const form of dom.credentialForms) {
-    const targetHost = form.actionHost;
-    if (!targetHost) continue;
-    if (targetHost !== hostname && !targetHost.endsWith('.' + hostname)) {
-      score += 65;
-      fired.push('legacy-cross-origin-form');
-      anomalies.push(`La password viene inviata a un server esterno non appartenente al dominio (${targetHost}).`);
-    }
-  }
+  return {
+    rank: rankFromCategories(categories, veto),
+    categories,
+    fired,
+    suppressed: [...suppressed],
+    veto,
+    phase
+  };
+}
 
-  return { score, rank: rankFromLegacyScore(score), anomalies, fired };
+const zeroed = () => ({ identity: 0, credentials: 0, transport: 0, reputation: 0 });
+
+function describe(rule, params) {
+  const render = RULE_MESSAGES[rule.id];
+  return {
+    id: rule.id,
+    kind: rule.kind,
+    category: rule.category ?? null,
+    params,
+    message: render ? render(params) : rule.id
+  };
 }
 
 /**
- * Le soglie storiche. Nota l'assenza di qualunque saturazione: content.js
- * non applica `Math.min(100, score)` (il simulatore invece sì — un'altra
- * divergenza fra le due copie).
+ * La tabella di lookup: dalla tupla dei livelli al rank.
  *
- * @param {number} score
- * @returns {number} rank da 1 a 5
- */
-export function rankFromLegacyScore(score) {
-  if (score >= 80) return 5;  // Minaccia critica
-  if (score >= 60) return 4;  // Rischio elevato
-  if (score >= 40) return 3;  // Sospetto moderato
-  if (score >= 20) return 2;  // Attenzione minima
-  return 1;                   // Nessun segnale rilevato
-}
-
-/**
- * Etichetta del rank. Il livello 1 NON dice "sicuro": l'assenza di segnali
- * non è una garanzia, e comunicarla come tale è il difetto che rende un
- * verdetto rassicurante più dannoso di nessun verdetto.
+ * Documentata per intero in docs/RANKING.md, e questa è l'unica
+ * implementazione. Nota che `credentials` non compare mai da sola: una pagina
+ * che chiede una password non è per questo sospetta, quindi non può alzare il
+ * rank in assenza di un problema di identità o di trasporto.
  *
- * @param {number} rank
- * @returns {string}
+ * @param {Record<Category, number>} c
+ * @param {string|null} veto
+ * @returns {number}
  */
-export function rankLabel(rank) {
-  switch (rank) {
-    case 5: return 'Minaccia critica (5/5)';
-    case 4: return 'Rischio elevato (4/5)';
-    case 3: return 'Sospetto moderato (3/5)';
-    case 2: return 'Attenzione minima (2/5)';
-    default: return 'Nessun segnale noto (1/5)';
-  }
+export function rankFromCategories(c, veto = null) {
+  if (veto) return 5;
+
+  if (c.identity >= 2 && c.credentials >= 1) return 4;
+
+  if (c.identity >= 2) return 3;
+  if (c.identity >= 1 && c.credentials >= 1) return 3;
+  if (c.transport >= 2 && c.credentials >= 1) return 3;
+
+  if (c.identity >= 1 || c.transport >= 1 || c.reputation >= 1) return 2;
+
+  return 1;
 }
 
 /**
- * Punto di ingresso comodo per chi ha solo un URL e dei flag: usato dai test
- * e dalla pagina di progetto, che così mostra i numeri veri del motore.
+ * Fonde il verdetto da solo URL con quello completo dopo il caricamento.
+ *
+ * MONOTONO PER SCELTA: il rank può salire, mai scendere. De-escalare
+ * significherebbe ritirare un interstiziale già mostrato all'utente, che è
+ * sia confuso sia sfruttabile — basterebbe a un attaccante iniettare nel DOM
+ * qualcosa che abbassi il verdetto.
+ *
+ * @param {Verdict} urlVerdict
+ * @param {Verdict} fullVerdict
+ * @returns {Verdict}
+ */
+export function mergeVerdicts(urlVerdict, fullVerdict) {
+  if (!urlVerdict) return fullVerdict;
+  if (!fullVerdict) return urlVerdict;
+
+  const categories = zeroed();
+  for (const category of CATEGORIES) {
+    categories[category] = Math.max(urlVerdict.categories[category], fullVerdict.categories[category]);
+  }
+
+  const veto = fullVerdict.veto || urlVerdict.veto;
+  const seen = new Set();
+  const fired = [...urlVerdict.fired, ...fullVerdict.fired].filter((f) => {
+    if (seen.has(f.id)) return false;
+    seen.add(f.id);
+    return true;
+  });
+
+  return {
+    rank: Math.max(urlVerdict.rank, fullVerdict.rank, rankFromCategories(categories, veto)),
+    categories,
+    fired,
+    suppressed: [...new Set([...urlVerdict.suppressed, ...fullVerdict.suppressed])],
+    veto,
+    phase: 'full'
+  };
+}
+
+/**
+ * Comodità: dall'URL (più eventuali segnali di pagina) al verdetto.
+ * Usato dai test e dal simulatore, così che la demo mostri i numeri veri.
  *
  * @param {string} rawUrl
- * @param {{hasPassword?: boolean, formAction?: string|null}} [page]
+ * @param {object} [page]
  */
 export function evaluateUrlAndPage(rawUrl, page = {}) {
-  const url = buildUrlSignals(rawUrl);
-  const credentialForms = [];
-  if (page.formAction) {
-    // Fedele al codice storico: solo le action ASSOLUTE http(s) producono un
-    // segnale. Le action relative — cioè la maggioranza dei login legittimi —
-    // erano semplicemente ignorate.
-    let actionHost = null;
-    if (/^https?:\/\//.test(page.formAction)) {
-      try {
-        actionHost = new URL(page.formAction).hostname.toLowerCase();
-      } catch { /* non parsabile: nessun segnale, come nel codice storico */ }
-    }
-    credentialForms.push({ actionHost });
+  const urlSignals = buildUrlSignals(rawUrl, page);
+  if (!urlSignals.valid) {
+    return { rank: 1, categories: zeroed(), fired: [], suppressed: [], veto: null, phase: 'url' };
   }
-  return evaluateLegacy(url, {
+
+  const hasDom = page.hasPassword !== undefined || page.formAction !== undefined ||
+                 page.title !== undefined || page.visibleText !== undefined;
+
+  if (!hasDom) return evaluate(urlSignals, { phase: 'url' });
+
+  const domRaw = {
     passwordFieldCount: page.hasPassword ? 1 : 0,
-    credentialForms
-  });
+    fieldNames: page.fieldNames || [],
+    credentialForms: page.formAction ? [{ actionHost: safeHost(page.formAction, rawUrl) }] : [],
+    title: page.title || '',
+    ogSiteName: page.ogSiteName || '',
+    visibleText: page.visibleText || ''
+  };
+
+  const merged = { ...urlSignals, ...normalizeDomSignals(domRaw, urlSignals) };
+  return evaluate(merged, { phase: 'full' });
+}
+
+function safeHost(action, base) {
+  try {
+    return new URL(action, base).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Etichetta del rank. Il livello 1 non dice "sicuro", di proposito.
+ * @param {number} rank
+ */
+export function rankLabel(rank) {
+  return RANK_LABELS[rank] ?? RANK_LABELS[1];
+}
+
+/** @param {number} rank */
+export function rankSubtitle(rank) {
+  return RANK_SUBTITLES[rank] ?? RANK_SUBTITLES[1];
 }
