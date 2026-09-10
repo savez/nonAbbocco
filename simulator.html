@@ -1,813 +1,1375 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NonAbbocco — Difesa anti-phishing con ranking 1-5</title>
-  <meta name="description" content="Estensione Chrome e Firefox open source che analizza URL e DOM, calcola un ranking di rischio da 1 a 5 e sostituisce le pagine di phishing con un interstiziale non manomettibile.">
-  <!-- GENERATO da tools/build-page.mjs — non modificare a mano.
-       Rigenera con: node tools/build-page.mjs -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    code, pre { font-family: 'JetBrains Mono', monospace; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #090d16; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #334155; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NonAbbocco — l'indirizzo sembra giusto. Non lo è.</title>
+<meta name="description" content="Estensione Chrome e Firefox open source che smonta l'indirizzo di ogni pagina, assegna un ranking di rischio da 1 a 5 e blocca il phishing prima che tu digiti le credenziali. Analisi locale, nessuna telemetria.">
+<meta property="og:title" content="NonAbbocco — difesa anti-phishing con ranking 1-5">
+<meta property="og:description" content="L'indirizzo sembra giusto. Non lo è. Estensione Chrome e Firefox, analisi locale, open source.">
+<meta property="og:image" content="assets/banner.svg">
+<link rel="icon" href="icons/icon-48.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- GENERATO da tools/build-page.mjs — non modificare a mano.
+     Rigenera con: node tools/build-page.mjs -->
+<style>
+/* NonAbbocco — foglio di stile della pagina di progetto.
+ *
+ * ─── LA REGOLA CHE GOVERNA TUTTO ─────────────────────────────────────────────
+ *
+ * IL COLORE È SEGNALE, MAI DECORAZIONE.
+ *
+ * Questa pagina è quasi monocroma: carta, inchiostro, filetti. Il colore
+ * saturo compare solo in due casi, e sono mutuamente esclusivi:
+ *
+ *   1. VERDETTI — verde, ambra, arancio, rosso appaiono soltanto dove il
+ *      motore ha davvero espresso un giudizio. Su uno strumento di sicurezza
+ *      usare il rosso per arredare è disonesto: abitua l'occhio all'allarme e
+ *      lo rende invisibile quando conta.
+ *   2. VOCE DEL PROGETTO — il gradiente ambra→rosa→indaco è riservato a
+ *      quando parla NonAbbocco di sé: il marchio e il blocco di sostegno.
+ *      Mai su un verdetto.
+ *
+ * Da qui discende anche lo sfondo chiaro. Ogni strumento di sicurezza è nero;
+ * ma il mondo di riferimento qui è la barra degli indirizzi e il documento,
+ * che sono chiari — e su carta un verdetto rosso pesa molto più che su nero.
+ *
+ * ─── TIPOGRAFIA ──────────────────────────────────────────────────────────────
+ *
+ * Atkinson Hyperlegible è disegnato dal Braille Institute perché caratteri
+ * simili NON possano essere confusi fra loro. Su una pagina che parla di
+ * attacchi omografi non è una scelta estetica, è la tesi resa in caratteri.
+ * IBM Plex Mono per gli URL, per la stessa ragione: disambigua 0/O e 1/l/I.
+ */
+
+:root {
+  --paper:      #fbfbfd;
+  --paper-sunk: #f3f4f8;
+  --ink:        #10131a;
+  --graphite:   #59617340;
+  --muted:      #596173;
+  --rule:       #e2e5ee;
+  --rule-soft:  #eceef4;
+
+  /* Verdetti. Usati SOLO dove il motore ha giudicato. */
+  --clear:  #10714a;
+  --notice: #8a6410;
+  --warn:   #b4530c;
+  --flag:   #c41f36;
+  --flag-wash: #fdf2f3;
+  --clear-wash: #f0f8f4;
+
+  /* Voce del progetto. */
+  --brand-a: #f59e0b;
+  --brand-b: #f43f5e;
+  --brand-c: #4f46e5;
+
+  --sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --measure: 62ch;
+  --gutter: clamp(1.25rem, 5vw, 4rem);
+  --maxw: 1120px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:      #0d0f14;
+    --paper-sunk: #14171f;
+    --ink:        #eef0f6;
+    --muted:      #99a1b3;
+    --rule:       #262b36;
+    --rule-soft:  #1c212b;
+    --clear:  #4ade80;
+    --notice: #fbbf24;
+    --warn:   #fb923c;
+    --flag:   #ff6b7d;
+    --flag-wash:  #1e1216;
+    --clear-wash: #0f1a14;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--brand-c);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.wrap {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+
+/* ─── Testatina ───────────────────────────────────────────────────────────── */
+
+.topbar {
+  border-bottom: 1px solid var(--rule);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+.topbar__in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  min-height: 62px;
+  padding-block: .5rem;
+}
+.brand { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
+.brand img { width: 28px; height: 28px; display: block; }
+.brand__name { font-weight: 700; letter-spacing: -.02em; font-size: 1.02rem; }
+.topnav { display: flex; align-items: center; gap: .3rem; }
+.topnav a {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .82rem;
+  text-decoration: none;
+  color: var(--muted);
+  padding: .4rem .55rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.topnav a svg { flex: none; }
+.topnav a:hover { color: var(--ink); background: var(--paper-sunk); }
+.topnav .is-hidden-sm { display: none; }
+@media (min-width: 720px) { .topnav .is-hidden-sm { display: inline-block; } }
+
+/* ─── Elementi ricorrenti ─────────────────────────────────────────────────── */
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .7rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+section { border-top: 1px solid var(--rule); }
+section:first-of-type { border-top: 0; }
+
+.band { padding-block: clamp(3.5rem, 8vw, 6rem); }
+
+h2 {
+  font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+  line-height: 1.15;
+  letter-spacing: -.028em;
+  margin: .5rem 0 .6rem;
+  font-weight: 700;
+}
+h3 { font-size: 1rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+
+.lede { color: var(--muted); max-width: var(--measure); margin: 0; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font: 600 .9rem/1 var(--sans);
+  text-decoration: none;
+  padding: .78rem 1.15rem;
+  border-radius: 3px;
+  border: 1px solid var(--ink);
+  transition: transform .12s ease, background .12s ease;
+}
+.btn--solid { background: var(--ink); color: var(--paper); }
+.btn--ghost { background: transparent; color: var(--ink); }
+.btn--ghost:hover { background: var(--paper-sunk); }
+.btn:active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+
+/* ─── Hero: l'anatomia di un indirizzo ────────────────────────────────────── */
+
+.hero { padding-block: clamp(3rem, 8vw, 5.5rem) clamp(3.5rem, 8vw, 6rem); }
+
+.hero__claim {
+  font-size: clamp(1.75rem, 4.6vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  font-weight: 700;
+  margin: 1.1rem 0 0;
+  max-width: 18ch;
+}
+.hero__claim em { font-style: normal; color: var(--flag); }
+
+.hero__sub {
+  color: var(--muted);
+  max-width: 46ch;
+  margin: 1.1rem 0 0;
+}
+
+.hero__cta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.8rem; }
+
+/* Il pezzo firma: l'URL sezionato. */
+.anatomy {
+  margin-top: clamp(2.5rem, 6vw, 4rem);
+  padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.1rem, 3vw, 2rem) clamp(1.4rem, 3vw, 2rem);
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.anatomy__bar {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-family: var(--mono);
+  font-size: .68rem;
+  color: var(--muted);
+  margin-bottom: 1.4rem;
+}
+.anatomy__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rule); }
+
+.anatomy__url {
+  display: flex;
+  align-items: flex-start;
+  font-family: var(--mono);
+  font-size: clamp(.95rem, 3.1vw, 1.9rem);
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.part { display: block; position: relative; }
+.part__text { color: var(--muted); }
+.part__brace {
+  display: block;
+  height: 7px;
+  margin-top: .5rem;
+  border: 1px solid transparent;
+  border-top: 0;
+  opacity: 0;
+  transition: opacity .5s ease;
+}
+.part__label {
+  position: absolute;
+  left: 0;
+  top: calc(100% + .45rem);
+  font-family: var(--mono);
+  font-size: .68rem;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity .5s ease, transform .5s ease;
+}
+
+.part--decoy .part__text { color: var(--ink); font-weight: 700; }
+.part--decoy .part__brace { border-color: var(--muted); }
+.part--decoy .part__label { color: var(--muted); }
+
+.part--real .part__text { color: var(--flag); font-weight: 700; }
+.part--real .part__brace { border-color: var(--flag); }
+.part--real .part__label { color: var(--flag); font-weight: 700; }
+
+/* La sequenza di rivelazione: prima quello che leggi, poi quello che è. */
+.anatomy.is-revealed .part--decoy .part__brace,
+.anatomy.is-revealed .part--decoy .part__label { opacity: 1; transform: none; }
+.anatomy.is-revealed .part--real .part__brace,
+.anatomy.is-revealed .part--real .part__label {
+  opacity: 1;
+  transform: none;
+  transition-delay: .55s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .part__brace, .part__label { transition: none !important; transition-delay: 0s !important; }
+}
+
+.anatomy__note {
+  margin: 2.6rem 0 0;
+  font-size: .88rem;
+  color: var(--muted);
+  max-width: 54ch;
+  white-space: normal;
+}
+.anatomy__note b { color: var(--ink); font-weight: 700; }
+
+/* ─── Le quattro domande ──────────────────────────────────────────────────── */
+
+.questions {
+  display: grid;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 2.2rem;
+}
+@media (min-width: 760px) { .questions { grid-template-columns: repeat(4, 1fr); } }
+.question { background: var(--paper); padding: 1.4rem 1.2rem; }
+.question__key { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+.question__ask { font-weight: 700; margin: .5rem 0 0; letter-spacing: -.015em; line-height: 1.3; }
+
+.formula {
+  margin-top: 1.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.formula__row {
+  display: grid;
+  grid-template-columns: 4.6rem 1fr;
+  gap: 1rem;
+  padding: .8rem 1.1rem;
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--mono);
+  font-size: .8rem;
+  align-items: baseline;
+}
+.formula__row:first-child { border-top: 0; }
+.formula__rank { font-weight: 600; }
+.formula__cond { color: var(--muted); }
+.formula__cond b { color: var(--ink); font-weight: 600; }
+.r1, .r2 { color: var(--clear); }
+.r3 { color: var(--notice); }
+.r4 { color: var(--warn); }
+.r5 { color: var(--flag); }
+
+.callout {
+  margin-top: 1.6rem;
+  padding: 1.15rem 1.3rem;
+  border-left: 3px solid var(--ink);
+  background: var(--paper-sunk);
+  font-size: .93rem;
+  max-width: var(--measure);
+}
+.callout p { margin: 0; }
+.callout p + p { margin-top: .7rem; }
+.callout--flag { border-left-color: var(--flag); background: var(--flag-wash); }
+
+/* ─── Simulatore ──────────────────────────────────────────────────────────── */
+
+.sim { display: grid; gap: 1.4rem; margin-top: 2.2rem; }
+@media (min-width: 940px) { .sim { grid-template-columns: 340px 1fr; align-items: start; } }
+
+.panel { border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); }
+.panel__head {
+  padding: .8rem 1.1rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+}
+.panel__body { padding: 1.1rem; }
+
+.presets { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; margin-bottom: 1.2rem; }
+.preset {
+  text-align: left;
+  font: 500 .78rem/1.3 var(--sans);
+  padding: .55rem .65rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.preset:hover { background: var(--paper-sunk); }
+.preset[aria-pressed="true"] { border-color: var(--ink); background: var(--paper-sunk); }
+.preset small { display: block; color: var(--muted); font-size: .68rem; font-family: var(--mono); margin-top: .15rem; }
+
+.field { margin-bottom: .9rem; }
+.field > label {
+  display: block;
+  font-family: var(--mono);
+  font-size: .68rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: .35rem;
+}
+.field input[type="text"], .field select {
+  width: 100%;
+  font: 400 .82rem/1.4 var(--mono);
+  padding: .55rem .6rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+}
+.field select { font-family: var(--sans); }
+.field input[type="text"]:focus, .field select:focus { border-color: var(--ink); outline: none; }
+
+.toggles { display: grid; gap: .4rem; margin-bottom: .9rem; }
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: .85rem;
+  cursor: pointer;
+  padding: .35rem 0;
+}
+.toggle input { accent-color: var(--ink); width: 15px; height: 15px; }
+
+/* Il finto browser */
+.viewport { border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; background: var(--paper); }
+.viewport__bar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .55rem .7rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-sunk);
+}
+.viewport__addr {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: .72rem;
+  padding: .3rem .5rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.rankchip {
+  font-family: var(--mono);
+  font-size: .7rem;
+  font-weight: 600;
+  padding: .22rem .45rem;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.stage { position: relative; min-height: 420px; display: grid; place-items: center; padding: 1.6rem; background: var(--paper-sunk); }
+
+.fakepage {
+  width: 100%;
+  max-width: 300px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1.3rem;
+  text-align: center;
+}
+.fakepage__logo {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--rule); margin: 0 auto .7rem;
+  display: grid; place-items: center; font-weight: 700; color: var(--muted);
+}
+.fakepage h4 { margin: 0; font-size: .95rem; }
+.fakepage__urgent { color: var(--flag); font-size: .74rem; font-weight: 700; margin: .35rem 0 0; }
+.fakepage__row { margin-top: .8rem; text-align: left; }
+.fakepage__row span { display: block; font-size: .66rem; color: var(--muted); margin-bottom: .2rem; font-family: var(--mono); }
+.fakepage__row i {
+  display: block; height: 30px; border: 1px solid var(--rule);
+  border-radius: 3px; background: var(--paper-sunk);
+}
+.fakepage__btn {
+  margin-top: .9rem; height: 32px; border-radius: 3px;
+  background: var(--muted); color: var(--paper);
+  display: grid; place-items: center; font-size: .78rem; font-weight: 600;
+}
+.fakepage__action { margin-top: .8rem; font-family: var(--mono); font-size: .62rem; color: var(--muted); word-break: break-all; }
+
+/* L'avviso discreto e l'interstiziale */
+.pill {
+  position: absolute; top: .9rem; right: 1.1rem;
+  display: flex; align-items: center; gap: .7rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--notice);
+  border-radius: 3px;
+  padding: .5rem .65rem;
+  font-size: .76rem;
+  box-shadow: 0 6px 20px #10131a12;
+  max-width: 82%;
+}
+.pill img { width: 16px; height: 16px; }
+.pill button {
+  font: 600 .7rem var(--sans); cursor: pointer;
+  background: none; border: 0; border-bottom: 1px solid currentColor;
+  padding: 0; color: var(--ink);
+}
+
+.block {
+  position: absolute; inset: 0; z-index: 5;
+  background: var(--paper);
+  padding: clamp(1rem, 3vw, 1.8rem);
+  border-top: 3px solid var(--flag);
+  display: flex;
+  flex-direction: column;
+}
+/* Solo il centro scorre. Testa e azioni restano sempre visibili: con molte
+   anomalie il contenuto eccede, e "Torna al sicuro" non deve finire fuori
+   vista — è l'azione che protegge l'utente. */
+.block__scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.block__tag {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-family: var(--mono); font-size: .68rem; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--flag);
+}
+.block h4 { font-size: clamp(1.1rem, 2.6vw, 1.45rem); margin: .5rem 0 .35rem; letter-spacing: -.02em; }
+.block__sub { color: var(--muted); font-size: .85rem; margin: 0 0 1.1rem; max-width: 48ch; }
+
+.levels { display: grid; gap: .5rem; margin-bottom: 1.1rem; }
+.level { display: grid; grid-template-columns: 1fr auto; gap: .8rem; align-items: center; font-size: .8rem; }
+.level__name { color: var(--muted); }
+.level.is-suppressed .level__name { text-decoration: line-through; color: var(--clear); }
+.level__pips { display: flex; gap: 3px; }
+.level__pips i { width: 22px; height: 5px; border-radius: 1px; background: var(--rule); display: block; }
+.level__pips i.on { background: var(--notice); }
+.level__pips i.hot { background: var(--flag); }
+
+.reasons { margin: 0 0 1rem; padding-left: 1.1rem; font-size: .84rem; }
+.reasons li { margin-bottom: .35rem; }
+.reasons li::marker { color: var(--flag); }
+.exempt { margin: 0 0 1rem; font-size: .78rem; color: var(--clear); background: var(--clear-wash); border-radius: 3px; padding: .6rem .75rem; }
+.exempt div + div { margin-top: .25rem; }
+
+/* Le azioni restano agganciate in fondo: con molte anomalie il contenuto
+   scorre, e "Torna al sicuro" non deve mai finire sotto il bordo — è
+   l'azione che protegge l'utente. */
+.block__actions {
+  display: flex; flex-wrap: wrap; gap: .5rem;
+  flex: none;
+  padding-top: .9rem;
+  border-top: 1px solid var(--rule-soft);
+  margin-top: .9rem;
+}
+.block__actions .btn { font-size: .82rem; padding: .6rem .9rem; }
+
+.diag {
+  display: flex; flex-wrap: wrap; gap: .3rem 1rem;
+  justify-content: space-between;
+  padding: .6rem .8rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: .7rem; color: var(--muted);
+}
+.bypass {
+  position: absolute; left: .8rem; right: .8rem; top: .8rem; z-index: 6;
+  display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between;
+  background: var(--ink); color: var(--paper);
+  border-radius: 3px; padding: .5rem .7rem; font-size: .76rem;
+}
+.bypass button { font: 600 .74rem var(--sans); background: none; border: 0; color: var(--paper); border-bottom: 1px solid currentColor; cursor: pointer; padding: 0; }
+
+.is-hidden { display: none !important; }
+
+/* ─── Catalogo delle regole ───────────────────────────────────────────────── */
+
+.rulegroup { border: 1px solid var(--rule); border-radius: 4px; margin-top: 1rem; overflow: hidden; }
+.rulegroup__head {
+  padding: .8rem 1.1rem;
+  background: var(--paper-sunk);
+  border-bottom: 1px solid var(--rule);
+  display: flex; flex-wrap: wrap; gap: .2rem 1rem; align-items: baseline; justify-content: space-between;
+}
+.rulegroup__head h3 { margin: 0; }
+.rulegroup__ask { font-size: .8rem; color: var(--muted); }
+.rule {
+  display: grid;
+  gap: .15rem .9rem;
+  padding: .75rem 1.1rem;
+  border-top: 1px solid var(--rule-soft);
+}
+.rule:first-child { border-top: 0; }
+@media (min-width: 760px) { .rule { grid-template-columns: 15.5rem 1fr; align-items: baseline; } }
+.rule__id { font-family: var(--mono); font-size: .75rem; }
+.rule__what { font-size: .85rem; color: var(--muted); }
+.rule__kind {
+  font-family: var(--mono); font-size: .6rem; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--rule); border-radius: 2px; padding: 0 .3rem; margin-left: .35rem;
+  white-space: nowrap;
+}
+
+/* ─── Scala dei livelli ───────────────────────────────────────────────────── */
+
+.scale { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; margin-top: 2rem; }
+@media (min-width: 680px) { .scale { grid-template-columns: repeat(5, 1fr); } }
+.scale__item { background: var(--paper); padding: 1rem; }
+.scale__n { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; line-height: 1; }
+.scale__label { font-weight: 700; font-size: .82rem; margin-top: .45rem; letter-spacing: -.01em; }
+.scale__desc { font-size: .74rem; color: var(--muted); margin-top: .25rem; line-height: 1.45; }
+
+/* ─── Installazione ───────────────────────────────────────────────────────── */
+
+.install { display: grid; gap: 1rem; margin-top: 2rem; }
+@media (min-width: 760px) { .install { grid-template-columns: 1fr 1fr; } }
+.install ol { margin: .8rem 0 0; padding-left: 1.1rem; font-size: .88rem; }
+.install li { margin-bottom: .4rem; }
+.install li::marker { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+code {
+  font-family: var(--mono);
+  font-size: .84em;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-soft);
+  border-radius: 2px;
+  padding: .05em .3em;
+}
+
+/* ─── Sostegno: qui parla il progetto, quindi il gradiente ────────────────── */
+
+.support {
+  margin-top: 2rem;
+  border-radius: 4px;
+  padding: 2px;
+  background: linear-gradient(105deg, var(--brand-a), var(--brand-b) 52%, var(--brand-c));
+}
+.support__in {
+  background: var(--paper);
+  border-radius: 3px;
+  padding: clamp(1.4rem, 4vw, 2.2rem);
+  display: grid;
+  gap: 1.2rem;
+}
+@media (min-width: 720px) { .support__in { grid-template-columns: 1fr auto; align-items: center; } }
+.support h3 { font-size: 1.15rem; letter-spacing: -.02em; }
+.support p { margin: .35rem 0 0; color: var(--muted); font-size: .9rem; max-width: 48ch; }
+.support .btn--coffee {
+  background: linear-gradient(105deg, var(--brand-a), var(--brand-b) 60%, var(--brand-c));
+  color: #fff;
+  border: 0;
+  padding: .85rem 1.3rem;
+  white-space: nowrap;
+}
+
+/* ─── Piede ───────────────────────────────────────────────────────────────── */
+
+.foot { border-top: 1px solid var(--rule); padding-block: 2.2rem 3rem; }
+.foot__in { display: grid; gap: 1.4rem; }
+@media (min-width: 760px) { .foot__in { grid-template-columns: 1.4fr 1fr 1fr; } }
+.foot h4 { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 .6rem; font-weight: 400; }
+.foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.foot a { font-size: .87rem; text-decoration: none; color: var(--muted); }
+.foot a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.foot__note { font-size: .8rem; color: var(--muted); margin: 0; max-width: 40ch; }
+.foot__legal { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--rule-soft); font-family: var(--mono); font-size: .68rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; justify-content: space-between; }
+
+.warnbox {
+  margin-top: 1.4rem;
+  border: 1px solid var(--notice);
+  border-radius: 4px;
+  padding: 1rem 1.2rem;
+  font-size: .87rem;
+}
+.warnbox strong { display: block; margin-bottom: .3rem; }
+
+</style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-rose-500 selection:text-white">
+<body>
 
-  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-      <a href="#top" class="flex items-center space-x-3 shrink-0">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-rose-600/25 text-xl">🎣</div>
-        <div>
-          <div class="flex items-center space-x-2">
-            <h1 class="font-bold text-base sm:text-lg text-white">NonAbbocco</h1>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono font-medium">MV3</span>
-          </div>
-          <p class="text-xs text-slate-400 hidden sm:block">Difesa anti-phishing con ranking di rischio 1-5</p>
-        </div>
-      </a>
-      <nav class="flex items-center gap-1 sm:gap-2 text-xs font-semibold">
-        <a href="#simulatore" class="px-3 py-1.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all">Simulatore</a>
-        <a href="#regole" class="px-3 py-1.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all hidden sm:block">Regole</a>
-        <a href="#installazione" class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 transition-all">Installa</a>
-      </nav>
-    </div>
-  </header>
+<header class="topbar">
+  <div class="wrap topbar__in">
+    <a class="brand" href="#top">
+      <img src="icons/icon-48.png" alt="">
+      <span class="brand__name">NonAbbocco</span>
+    </a>
+    <nav class="topnav">
+      <a href="#prova">Provalo</a>
+      <a href="#regole" class="is-hidden-sm">Regole</a>
+      <a href="#limiti" class="is-hidden-sm">Limiti</a>
+      <a href="https://github.com/savez/nonAbbocco" aria-label="Codice su GitHub"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg><span class="is-hidden-sm">GitHub</span></a>
+      <a href="#installa">Installa</a>
+    </nav>
+  </div>
+</header>
 
-  <main id="top" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex-1 flex flex-col gap-10 sm:gap-14 w-full">
+<main id="top">
 
-    <section class="flex flex-col items-center text-center gap-5 pt-2 sm:pt-6">
-      <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-semibold text-slate-300">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-        Analisi locale · nessuna telemetria · open source
-      </span>
-      <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white max-w-3xl leading-tight">
-        Non abboccare<br class="hidden sm:block"> all'esca del phishing.
-      </h2>
-      <p class="text-sm sm:text-base text-slate-400 max-w-2xl leading-relaxed">
-        NonAbbocco analizza l'indirizzo e il contenuto di ogni pagina, assegna un
-        <strong class="text-slate-200 font-semibold">ranking di rischio da 1 a 5</strong> e interviene prima che tu inserisca le credenziali.
+<!-- ─── Hero: l'anatomia di un indirizzo ─────────────────────────────────── -->
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Estensione Chrome e Firefox · open source</span>
+    <h1 class="hero__claim">L'indirizzo sembra giusto. <em>Non lo è.</em></h1>
+    <p class="hero__sub">
+      Il phishing non ti frega perché sei distratto. Ti frega perché il tuo occhio
+      legge l'inizio di un indirizzo e smette lì.
+    </p>
+
+    <div class="anatomy" id="anatomy">
+      <div class="anatomy__bar">
+        <span class="anatomy__dot"></span><span class="anatomy__dot"></span><span class="anatomy__dot"></span>
+        <span>barra degli indirizzi</span>
+      </div>
+
+      <div class="anatomy__url">
+        <span class="part part--decoy">
+          <span class="part__text">https://paypal.com</span>
+          <span class="part__brace"></span>
+          <span class="part__label">questo leggi</span>
+        </span><span class="part part--real">
+          <span class="part__text">.verifica-account.xyz</span>
+          <span class="part__brace"></span>
+          <span class="part__label">questo è il sito</span>
+        </span><span class="part">
+          <span class="part__text">/login</span>
+        </span>
+      </div>
+
+      <p class="anatomy__note">
+        Il dominio è <b>verifica-account.xyz</b>, registrato da chiunque per pochi euro.
+        &ldquo;paypal.com&rdquo; è soltanto testo che gli sta davanti. NonAbbocco fa questa
+        lettura su ogni pagina che apri, prima che tu digiti qualcosa.
       </p>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-3xl text-left mt-1">
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800"><div class="text-lg font-bold text-white">22</div><div class="text-[11px] text-slate-400">regole di rilevamento</div></div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800"><div class="text-lg font-bold text-white">50</div><div class="text-[11px] text-slate-400">marchi protetti</div></div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800"><div class="text-lg font-bold text-white">150</div><div class="text-[11px] text-slate-400">domini legittimi noti</div></div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800"><div class="text-lg font-bold text-white">~15&thinsp;µs</div><div class="text-[11px] text-slate-400">per controllo</div></div>
+    </div>
+
+    <div class="hero__cta">
+      <a class="btn btn--solid" href="#installa">Installa l'estensione</a>
+      <a class="btn btn--ghost" href="#prova">Provalo qui sotto</a>
+      <a class="btn btn--ghost" href="https://github.com/savez/nonAbbocco"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg> Codice su GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Come decide ──────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Come decide</span>
+    <h2>Quattro domande, non un punteggio</h2>
+    <p class="lede">
+      La prima versione del motore sommava punti. Dava <b>55</b> a
+      <code>paypal-secure.xyz/login</code> e <b>55</b> anche a <code>posteitaliane.it</code>:
+      un attacco da manuale e il sito vero di Poste, stesso verdetto. Il problema non erano i
+      pesi, era sommare fra grandezze che non si sommano.
+    </p>
+
+    <div class="questions">
+      <div class="question">
+        <div class="question__key">identity</div>
+        <p class="question__ask">Chi dice di essere questo sito?</p>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 w-full max-w-4xl mt-2 text-left">
-        <div class="p-3 rounded-xl bg-slate-900 border border-emerald-500/25 ">
-          <div class="flex items-center gap-1.5 mb-1">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="text-xs font-bold text-emerald-400">1</span>
-            <span class="text-[11px] font-semibold text-slate-200">Nessun segnale noto</span>
-          </div>
-          <div class="text-[10px] text-slate-500 leading-snug">Non abbiamo rilevato segnali di phishing. Non è una garanzia che il sito sia sicuro.</div>
-        </div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-emerald-500/25 ">
-          <div class="flex items-center gap-1.5 mb-1">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="text-xs font-bold text-emerald-400">2</span>
-            <span class="text-[11px] font-semibold text-slate-200">Qualche anomalia</span>
-          </div>
-          <div class="text-[10px] text-slate-500 leading-snug">Qualcosa non torna, ma potrebbe essere legittimo. Controlla l'indirizzo.</div>
-        </div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-amber-500/25 ">
-          <div class="flex items-center gap-1.5 mb-1">
-            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-            <span class="text-xs font-bold text-amber-400">3</span>
-            <span class="text-[11px] font-semibold text-slate-200">Sospetto moderato</span>
-          </div>
-          <div class="text-[10px] text-slate-500 leading-snug">Diversi elementi sospetti insieme. Non inserire dati se non sei certo.</div>
-        </div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-orange-500/30 ">
-          <div class="flex items-center gap-1.5 mb-1">
-            <span class="w-2 h-2 rounded-full bg-orange-500"></span>
-            <span class="text-xs font-bold text-orange-400">4</span>
-            <span class="text-[11px] font-semibold text-slate-200">Rischio elevato</span>
-          </div>
-          <div class="text-[10px] text-slate-500 leading-snug">Il sito imita un servizio noto e chiede dati. Molto probabilmente è una truffa.</div>
-        </div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-rose-500/40 col-span-2 sm:col-span-1">
-          <div class="flex items-center gap-1.5 mb-1">
-            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-            <span class="text-xs font-bold text-rose-400">5</span>
-            <span class="text-[11px] font-semibold text-slate-200">Minaccia confermata</span>
-          </div>
-          <div class="text-[10px] text-slate-500 leading-snug">Sito segnalato come pericoloso. Non inserire alcun dato.</div>
-        </div>
+      <div class="question">
+        <div class="question__key">credentials</div>
+        <p class="question__ask">Cosa ti sta chiedendo?</p>
       </div>
-    </section>
-
-    <section id="simulatore" class="flex flex-col gap-4 scroll-mt-20">
-      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-        <div>
-          <h2 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><span class="text-lg">🧪</span> Simulatore interattivo</h2>
-          <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Costruisci una pagina fittizia e guarda come reagisce il motore. I verdetti che vedi sono prodotti dallo
-            <strong class="text-slate-200">stesso codice</strong> che gira nell'estensione: la pagina importa <code class="text-indigo-300">src/scoring.js</code>.
-          </p>
-        </div>
-        <span class="text-[10px] font-mono text-slate-500 border border-slate-800 bg-slate-900 rounded-lg px-2.5 py-1 self-start sm:self-auto shrink-0">nessuna navigazione reale</span>
+      <div class="question">
+        <div class="question__key">transport</div>
+        <p class="question__ask">Come lo trasmette?</p>
       </div>
-
-      <div id="engine-warning" class="hidden bg-amber-950/30 border border-amber-600/40 rounded-2xl p-4 text-xs text-amber-200/90 leading-relaxed">
-        <strong class="text-amber-300">Il motore non si è caricato.</strong>
-        Questa pagina importa <code class="font-mono">src/scoring.js</code> come modulo ES, e i moduli non si caricano
-        con il protocollo <code class="font-mono">file://</code>. Servi la cartella del progetto — per esempio con
-        <code class="font-mono bg-slate-950 px-1 py-0.5 rounded">npx serve</code> — e riapri la pagina da
-        <code class="font-mono">http://localhost</code>.
+      <div class="question">
+        <div class="question__key">reputation</div>
+        <p class="question__ask">Cosa ne sanno gli altri?</p>
       </div>
+    </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-      <!-- Colonna Sinistra: Controlli Simulazione -->
-      <div class="lg:col-span-5 flex flex-col gap-4">
-        
-        <!-- Scenari Rapidi -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-rose-500"></span> Scenari da Testare con NonAbbocco
-          </span>
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <button onclick="applyPreset('legit')" class="p-2.5 rounded-xl border border-slate-700/60 bg-slate-800/40 hover:bg-emerald-950/30 hover:border-emerald-500/50 text-left transition-all">
-              <span class="block font-semibold text-emerald-400">Sito Genuino</span>
-              <span class="text-[10px] text-slate-400">paypal.com HTTPS</span>
-            </button>
-            <button onclick="applyPreset('typo')" class="p-2.5 rounded-xl border border-slate-700/60 bg-slate-800/40 hover:bg-rose-950/30 hover:border-rose-500/50 text-left transition-all">
-              <span class="block font-semibold text-rose-400">Typosquatting</span>
-              <span class="text-[10px] text-slate-400">paypa1-verify.xyz</span>
-            </button>
-            <button onclick="applyPreset('cross')" class="p-2.5 rounded-xl border border-slate-700/60 bg-slate-800/40 hover:bg-rose-950/30 hover:border-rose-500/50 text-left transition-all">
-              <span class="block font-semibold text-rose-400">Form Cross-Origin</span>
-              <span class="text-[10px] text-slate-400">Invia dati a C2 esterno</span>
-            </button>
-            <button onclick="applyPreset('ip')" class="p-2.5 rounded-xl border border-slate-700/60 bg-slate-800/40 hover:bg-rose-950/30 hover:border-rose-500/50 text-left transition-all">
-              <span class="block font-semibold text-rose-400">Indirizzo IP Grezzo</span>
-              <span class="text-[10px] text-slate-400">http://185.220.101.5/</span>
-            </button>
-          </div>
+    <div class="formula">
+      <div class="formula__row"><span class="formula__rank r5">rank 5</span><span class="formula__cond">veto — solo un riscontro di Safe Browsing</span></div>
+      <div class="formula__row"><span class="formula__rank r4">rank 4</span><span class="formula__cond">identity ≥ 2 <b>E</b> credentials ≥ 1</span></div>
+      <div class="formula__row"><span class="formula__rank r3">rank 3</span><span class="formula__cond">identity ≥ 2 <b>O</b> (identity ≥ 1 <b>E</b> credentials ≥ 1) <b>O</b> (transport ≥ 2 <b>E</b> credentials ≥ 1)</span></div>
+      <div class="formula__row"><span class="formula__rank r2">rank 2</span><span class="formula__cond">identity ≥ 1 <b>O</b> transport ≥ 1 <b>O</b> reputation ≥ 1</span></div>
+      <div class="formula__row"><span class="formula__rank r1">rank 1</span><span class="formula__cond">nessuna evidenza</span></div>
+    </div>
+
+    <div class="callout">
+      <p>
+        Guarda cosa manca: <b>credentials non compare mai da sola</b>. Una pagina che chiede una
+        password non è per questo sospetta — è la cosa più normale del web. Se bastasse da sola,
+        ogni login di ogni banca sarebbe un allarme e disinstalleresti l'estensione in due giorni.
+      </p>
+      <p>
+        È questa scelta che ha eliminato i falsi positivi su <code>posteitaliane.it</code> e
+        <code>login.microsoftonline.com</code>, e che impedisce di bloccarti il router di casa
+        su <code>192.168.1.1</code>.
+      </p>
+    </div>
+
+    <div class="scale">
+        <div class="scale__item">
+          <div class="scale__n r1">1</div>
+          <div class="scale__label">Nessun segnale noto</div>
+          <p class="scale__desc">Non abbiamo rilevato segnali di phishing. Non è una garanzia che il sito sia sicuro.</p>
         </div>
+        <div class="scale__item">
+          <div class="scale__n r2">2</div>
+          <div class="scale__label">Qualche anomalia</div>
+          <p class="scale__desc">Qualcosa non torna, ma potrebbe essere legittimo. Controlla l'indirizzo.</p>
+        </div>
+        <div class="scale__item">
+          <div class="scale__n r3">3</div>
+          <div class="scale__label">Sospetto moderato</div>
+          <p class="scale__desc">Diversi elementi sospetti insieme. Non inserire dati se non sei certo.</p>
+        </div>
+        <div class="scale__item">
+          <div class="scale__n r4">4</div>
+          <div class="scale__label">Rischio elevato</div>
+          <p class="scale__desc">Il sito imita un servizio noto e chiede dati. Molto probabilmente è una truffa.</p>
+        </div>
+        <div class="scale__item">
+          <div class="scale__n r5">5</div>
+          <div class="scale__label">Minaccia confermata</div>
+          <p class="scale__desc">Sito segnalato come pericoloso. Non inserire alcun dato.</p>
+        </div>
+    </div>
+  </div>
+</section>
 
-        <!-- Parametri Form Pagina -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col gap-3.5">
-          <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center justify-between">
-            <span>Motore di Rilevamento Esche</span>
-            <span class="text-[10px] text-slate-500 font-mono">Live Engine</span>
-          </h2>
+<!-- ─── Simulatore ───────────────────────────────────────────────────────── -->
+<section class="band" id="prova">
+  <div class="wrap">
+    <span class="eyebrow">Provalo</span>
+    <h2>Costruisci una pagina falsa e guarda cosa succede</h2>
+    <p class="lede">
+      I verdetti li produce lo stesso codice che gira nell'estensione: questa pagina importa
+      <code>src/scoring.js</code>. Niente naviga davvero, è tutto simulato qui dentro.
+    </p>
 
-          <div>
-            <label class="text-[11px] text-slate-400 block mb-1">URL della Pagina Sospetta</label>
-            <input id="sim-url" type="text" value="https://paypa1-security-verify.xyz/it/login" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-mono text-rose-300 focus:border-rose-500 focus:outline-none">
+    <div id="engine-warning" class="warnbox is-hidden">
+      <strong>Il motore non si è caricato.</strong>
+      La pagina importa <code>src/scoring.js</code> come modulo ES, e i moduli non si caricano
+      con <code>file://</code>. Servi la cartella — per esempio con <code>npx serve .</code> — e
+      riapri da <code>http://localhost</code>.
+    </div>
+
+    <div class="sim">
+      <div class="panel">
+        <div class="panel__head"><span class="eyebrow">La pagina finta</span></div>
+        <div class="panel__body">
+          <div class="presets" id="presets">
+            <button class="preset" data-preset="legit" type="button">PayPal vero<small>paypal.com</small></button>
+            <button class="preset" data-preset="typo" type="button">Typosquatting<small>paypal-secure.xyz</small></button>
+            <button class="preset" data-preset="sub" type="button">Marchio nel sottodominio<small>paypal.com.???.xyz</small></button>
+            <button class="preset" data-preset="pages" type="button">Hosting gratuito<small>???.pages.dev</small></button>
           </div>
 
-          <div>
-            <label class="text-[11px] text-slate-400 block mb-1">Titolo &lt;title&gt;</label>
-            <input id="sim-title" type="text" value="Accedi a PayPal - Verifica Sicurezza Obbligatoria" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none">
+          <div class="field">
+            <label for="sim-url">Indirizzo</label>
+            <input id="sim-url" type="text" spellcheck="false" value="https://paypal-secure.xyz/it/login">
+          </div>
+          <div class="field">
+            <label for="sim-title">Titolo della pagina</label>
+            <input id="sim-title" type="text" value="Accedi a PayPal — verifica obbligatoria">
+          </div>
+          <div class="field">
+            <label for="sim-action">Dove invia il modulo</label>
+            <input id="sim-action" type="text" spellcheck="false" value="">
           </div>
 
-          <div>
-            <label class="text-[11px] text-slate-400 block mb-1">Destinazione Form Login (action="")</label>
-            <input id="sim-action" type="text" value="https://hacker-c2-collector.ru/steal.php" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-mono text-rose-300 focus:border-rose-500 focus:outline-none">
+          <div class="toggles">
+            <label class="toggle"><input id="sim-pwd" type="checkbox" checked> Chiede una password</label>
+            <label class="toggle"><input id="sim-urgency" type="checkbox" checked> Insiste sull'urgenza</label>
           </div>
 
-          <div class="grid grid-cols-2 gap-2 pt-1">
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 cursor-pointer">
-              <input id="sim-pwd" type="checkbox" checked class="w-3.5 h-3.5 rounded text-rose-600 bg-slate-900 border-slate-700">
-              <span>Form Password</span>
-            </label>
-            <label class="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 cursor-pointer">
-              <input id="sim-urgency" type="checkbox" checked class="w-3.5 h-3.5 rounded text-rose-600 bg-slate-900 border-slate-700">
-              <span>Testo Urgenza</span>
-            </label>
-          </div>
-
-          <div class="p-3 bg-slate-950 border border-indigo-500/30 rounded-xl mt-1">
-            <div class="flex items-center justify-between mb-1.5">
-              <label for="sim-threshold" class="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                Soglia Minima di Blocco (Opzioni)
-              </label>
-              <span class="text-[10px] text-slate-400 font-mono">Default: 5</span>
-            </div>
-            <select id="sim-threshold" onchange="runSimulation()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
-              <option value="5" selected>Livello 5 (Default: Solo Minaccia Critica)</option>
-              <option value="4">Livello 4 e 5 (Blocca anche Rischio Elevato)</option>
-              <option value="3">Livello 3, 4 e 5 (Blocca anche Sospetto Moderato)</option>
-              <option value="2">Livello 2 in su (Massima Sensibilità)</option>
+          <div class="field">
+            <label for="sim-threshold">Soglia di blocco (nelle opzioni)</label>
+            <select id="sim-threshold">
+              <option value="5" selected>Livello 5 — solo minaccia confermata</option>
+              <option value="4">Livello 4 — anche rischio elevato</option>
+              <option value="3">Livello 3 — anche sospetto moderato</option>
+              <option value="2">Livello 2 — massima sensibilità</option>
             </select>
           </div>
-
-          <button onclick="runSimulation()" class="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-semibold text-xs shadow-lg shadow-rose-600/25 transition-all flex items-center justify-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            <span>Ricalcola Ranking &amp; Esegui</span>
-          </button>
         </div>
       </div>
 
-      <div class="lg:col-span-7 flex flex-col">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl flex-1 flex flex-col overflow-hidden">
-          
-          <!-- Mock Chrome Address Bar -->
-          <div class="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center gap-3">
-            <div class="flex items-center space-x-1.5">
-              <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
-              <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
-              <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
-            </div>
-            
-            <div class="flex-1 bg-slate-900 rounded-lg px-3 py-1 text-xs font-mono flex items-center justify-between border border-slate-800">
-              <div class="flex items-center gap-2 truncate">
-                <span id="mock-icon" class="text-rose-400">🎣</span>
-                <span id="mock-url-text" class="text-slate-300 truncate">https://paypa1-security-verify.xyz/it/login</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <div class="flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                  <span class="text-[10px] text-slate-400 font-sans">Rank:</span>
-                  <div class="flex gap-0.5" id="sim-meter-bars">
-                    <!-- Barre dinamiche 1-5 -->
-                  </div>
-                </div>
-                <span id="sim-badge" class="px-1.5 py-0.5 rounded font-bold text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40">5/5</span>
-              </div>
-            </div>
+      <div class="viewport">
+        <div class="viewport__bar">
+          <span class="anatomy__dot"></span><span class="anatomy__dot"></span><span class="anatomy__dot"></span>
+          <span class="viewport__addr" id="mock-url"></span>
+          <span class="rankchip" id="rank-chip">1/5</span>
+        </div>
+
+        <div class="stage">
+          <div class="fakepage">
+            <div class="fakepage__logo">P</div>
+            <h4 id="fake-title"></h4>
+            <p class="fakepage__urgent" id="fake-urgent">Verifica necessaria entro 24 ore.</p>
+            <div class="fakepage__row"><span>email</span><i></i></div>
+            <div class="fakepage__row"><span>password</span><i></i></div>
+            <div class="fakepage__btn">Accedi</div>
+            <p class="fakepage__action" id="fake-action"></p>
           </div>
 
-          <!-- Viewport della pagina simulata -->
-          <div class="relative flex-1 min-h-[440px] bg-slate-950 flex flex-col justify-center items-center p-6 overflow-hidden">
-            
-            <!-- Pillola Visibile per Livelli Intermedi (1-4) -->
-            <div id="sim-pill-widget" class="hidden absolute top-4 right-4 z-20 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/95 border border-amber-500/50 shadow-2xl backdrop-blur">
-              <span class="text-base">🎣</span>
-              <div class="text-left">
-                <div class="text-[11px] font-bold text-white flex items-center gap-1">
-                  <span>NonAbbocco:</span>
-                  <span id="sim-pill-level" class="text-amber-400">Livello 3/5</span>
-                </div>
-                <div class="text-[10px] text-slate-400" id="sim-pill-info">Sotto la soglia di blocco impostata.</div>
-              </div>
-              <button onclick="forceInspectBlock()" class="text-[10px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 ml-1">Dettagli</button>
-            </div>
-
-            <!-- Finto modulo web del sito sotto esame -->
-            <div id="sim-webpage-card" class="w-full max-w-sm p-6 rounded-2xl bg-white text-slate-800 shadow-2xl transition-all">
-              <div class="text-center mb-5">
-                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-600 text-white font-bold text-xl mb-2">
-                  P
-                </div>
-                <h3 id="sim-card-title" class="font-bold text-slate-900 text-base">Accedi al tuo conto</h3>
-                <p id="sim-card-urgent" class="text-xs text-rose-600 mt-1 font-semibold">Attenzione: Verifica necessaria entro 24 ore.</p>
-              </div>
-
-              <div class="space-y-3 text-left">
-                <div>
-                  <label class="block text-[11px] font-medium text-slate-600 mb-1">Email o Telefono</label>
-                  <input type="text" value="utente@esempio.it" disabled class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-slate-50">
-                </div>
-                <div>
-                  <label class="block text-[11px] font-medium text-slate-600 mb-1">Password</label>
-                  <input type="password" value="••••••••••••" disabled class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-slate-50">
-                </div>
-                <button disabled class="w-full py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg shadow-sm">
-                  Continua
-                </button>
-              </div>
-              <div class="mt-4 text-[10px] text-center text-slate-400">
-                Form action: <span id="sim-card-action" class="font-mono text-slate-500 truncate block">https://hacker-c2-collector.ru</span>
-              </div>
-            </div>
-
-            <div id="sim-block-overlay" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center transition-all duration-300">
-              <div class="max-w-md w-full bg-gradient-to-b from-rose-950/90 to-slate-900 border-2 border-rose-600 rounded-3xl p-6 shadow-2xl shadow-rose-950/80 animate-in fade-in zoom-in">
-                
-                <div class="w-14 h-14 rounded-2xl bg-rose-600/20 border border-rose-500/40 text-rose-500 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-rose-600/30 text-2xl">
-                  🎣
-                </div>
-
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/40 mb-2">
-                  <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                  <span id="overlay-badge-rank">NONABBOCCO: RANKING 5/5</span>
-                </div>
-
-                <h3 class="text-lg font-extrabold text-white mb-1.5">Non abboccare all'esca</h3>
-                <p id="overlay-subtitle" class="text-xs text-slate-300 mb-4 leading-relaxed">
-                  <!-- Dinamico: il sottotitolo del rank -->
-                </p>
-
-                <!-- I livelli per categoria: sostituiscono il punteggio su 100,
-                     che non spiegava nulla. Ogni riga è una domanda che
-                     l'utente capisce. -->
-                <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-left mb-3 space-y-1.5">
-                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Evidenza per categoria</span>
-                  <div id="overlay-levels" class="space-y-1.5">
-                    <!-- Dinamico -->
-                  </div>
-                </div>
-
-                <!-- Box anomalie -->
-                <div class="bg-slate-950/80 border border-rose-900/60 rounded-xl p-3 text-left mb-3">
-                  <span class="text-[11px] font-bold text-rose-400 block mb-1">Cosa abbiamo osservato:</span>
-                  <ul id="overlay-list" class="text-xs text-slate-300 space-y-1 list-disc list-inside">
-                    <!-- Dinamico -->
-                  </ul>
-                </div>
-
-                <!-- Le esenzioni: spiegano perché qualcosa NON è stato
-                     segnalato, che è informazione utile quanto il contrario. -->
-                <div id="overlay-exemptions" class="hidden bg-emerald-950/30 border border-emerald-800/40 rounded-xl p-2.5 text-left mb-4 space-y-1">
-                  <!-- Dinamico -->
-                </div>
-
-                <!-- Azioni -->
-                <div class="flex gap-2">
-                  <button onclick="applyPreset('legit')" class="flex-1 py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                    Torna al sicuro
-                  </button>
-                  <button onclick="triggerBypass()" class="py-2.5 px-3 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/40 font-semibold text-xs transition-all hover:text-white">
-                    Ignora e Procedi (Bypass)
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Banner di bypass attivo -->
-            <div id="sim-bypass-alert" class="hidden absolute top-4 inset-x-4 bg-amber-500 text-slate-950 px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between shadow-xl z-20">
-              <span>⚠️ Modalità Bypass NonAbbocco: blocco disattivato per questa specifica pagina.</span>
-              <button onclick="cancelBypass()" class="underline hover:text-black">Ripristina Blocco</button>
-            </div>
-
+          <div class="pill is-hidden" id="pill">
+            <img src="icons/icon-48.png" alt="">
+            <span><b id="pill-level"></b><br><span style="color:var(--muted)">sotto la soglia di blocco</span></span>
+            <button type="button" id="pill-details">Dettagli</button>
           </div>
 
-          <!-- Barra di stato diagnostica -->
-          <div class="bg-slate-900 border-t border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
-            <div>Stato: <span id="diag-status-text" class="font-bold text-rose-400">Blocco Schermo Attivo (Rank 5)</span></div>
-            <div id="diag-rank-desc" class="text-[11px] text-slate-400">Soglia configurata: Livello 5</div>
+          <div class="bypass is-hidden" id="bypass">
+            <span>Blocco ignorato per questa pagina.</span>
+            <button type="button" id="bypass-undo">Ripristina</button>
           </div>
 
+          <div class="block is-hidden" id="block">
+            <span class="block__tag" id="block-tag"></span>
+            <h4>Non abboccare all'esca</h4>
+            <p class="block__sub" id="block-sub"></p>
+
+            <div class="block__scroll">
+              <div class="levels" id="levels"></div>
+              <ul class="reasons" id="reasons"></ul>
+              <div class="exempt is-hidden" id="exempt"></div>
+            </div>
+
+            <div class="block__actions">
+              <button class="btn btn--solid" type="button" id="go-safe">Torna al sicuro</button>
+              <button class="btn btn--ghost" type="button" id="go-anyway">Procedi comunque</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="diag">
+          <span id="diag-state"></span>
+          <span id="diag-levels"></span>
         </div>
       </div>
+    </div>
+  </div>
+</section>
 
+<!-- ─── Catalogo delle regole ────────────────────────────────────────────── -->
+<section class="band" id="regole">
+  <div class="wrap">
+    <span class="eyebrow">22 regole · 50 marchi · 150 domini legittimi</span>
+    <h2>Cosa guarda, esattamente</h2>
+    <p class="lede">
+      Ogni regola alimenta una delle quattro categorie. Questo elenco è generato da
+      <code>src/rules.js</code>: non può descrivere qualcosa che il motore non fa. Il testo di
+      ciascuna è la frase che leggeresti davvero nell'avviso.
+    </p>
+
+      <div class="rulegroup">
+        <div class="rulegroup__head">
+          <h3>Identità del sito</h3>
+          <span class="rulegroup__ask">Chi dice di essere questo sito?</span>
+        </div>
+        <div class="rule">
+          <div class="rule__id">brand-in-subdomain<span class="rule__kind">forte</span></div>
+          <div class="rule__what">Il nome &quot;PayPal&quot; compare nel sottodominio, ma il dominio reale è un altro: è una tecnica per far leggere un marchio dove non c'è.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">brand-in-registrable-domain<span class="rule__kind">forte</span></div>
+          <div class="rule__what">Il dominio richiama il marchio &quot;PayPal&quot; senza appartenergli.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">homograph-brand-collision<span class="rule__kind">forte</span></div>
+          <div class="rule__what">L'indirizzo usa caratteri di un altro alfabeto per somigliare a &quot;PayPal&quot;. Scritto per esteso è: pаypal.com</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">mixed-script-label<span class="rule__kind">forte</span></div>
+          <div class="rule__what">L'indirizzo mescola alfabeti diversi dentro la stessa parola (pаypal), cosa che nessuna lingua richiede.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">userinfo-in-authority<span class="rule__kind">forte</span></div>
+          <div class="rule__what">L'indirizzo mostra &quot;pаypal.com&quot; prima della chiocciola, ma il sito che stai visitando è in realtà evil-collector.xyz.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">raw-ip-host<span class="rule__kind">forte</span></div>
+          <div class="rule__what">Il sito è raggiunto tramite un indirizzo numerico (185.220.101.5) invece che con un nome di dominio.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">ephemeral-hosting<span class="rule__kind">debole</span></div>
+          <div class="rule__what">La pagina è ospitata su un servizio gratuito (pages.dev), dove chiunque può pubblicare in pochi minuti.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">suspicious-tld<span class="rule__kind">debole</span></div>
+          <div class="rule__what">L'estensione del dominio (.xyz) è tra quelle a basso costo più usate per le truffe.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">deep-subdomain-nesting<span class="rule__kind">debole</span></div>
+          <div class="rule__what">L'indirizzo ha 5 livelli di sottodominio, spesso usati per allontanare il dominio reale dalla vista.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">brand-claimed-in-title<span class="rule__kind">debole</span></div>
+          <div class="rule__what">La pagina si presenta come &quot;PayPal&quot;, ma il dominio non appartiene a quel marchio.</div>
+        </div>
+      </div>
+      <div class="rulegroup">
+        <div class="rulegroup__head">
+          <h3>Dati richiesti</h3>
+          <span class="rulegroup__ask">Cosa ti sta chiedendo?</span>
+        </div>
+        <div class="rule">
+          <div class="rule__id">credential-surface<span class="rule__kind">debole</span></div>
+          <div class="rule__what">La pagina chiede una password.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">sensitive-fields<span class="rule__kind">debole</span></div>
+          <div class="rule__what">La pagina chiede dati particolarmente sensibili (codice OTP).</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">access-words-in-url<span class="rule__kind">debole</span></div>
+          <div class="rule__what">L'indirizzo contiene parole tipiche delle pagine di accesso o di sollecito (login).</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">cross-origin-credential-form<span class="rule__kind">debole</span></div>
+          <div class="rule__what">Il modulo invia i dati a un dominio diverso da quello che stai visitando (raccolta-dati.xyz).</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">urgency-language<span class="rule__kind">debole</span></div>
+          <div class="rule__what">Il testo insiste sull'urgenza, tecnica usata per farti agire senza riflettere.</div>
+        </div>
+      </div>
+      <div class="rulegroup">
+        <div class="rulegroup__head">
+          <h3>Sicurezza della connessione</h3>
+          <span class="rulegroup__ask">Come lo trasmette?</span>
+        </div>
+        <div class="rule">
+          <div class="rule__id">password-over-http<span class="rule__kind">forte</span></div>
+          <div class="rule__what">La password viaggerebbe in chiaro: la connessione non è cifrata.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">non-standard-port<span class="rule__kind">debole</span></div>
+          <div class="rule__what">Il sito risponde su una porta non standard (8443).</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">opaque-top-level-document<span class="rule__kind">forte</span></div>
+          <div class="rule__what">La pagina è caricata da uno schema senza origine verificabile (data:).</div>
+        </div>
+      </div>
+      <div class="rulegroup">
+        <div class="rulegroup__head">
+          <h3>Reputazione</h3>
+          <span class="rulegroup__ask">Cosa ne sanno gli altri?</span>
+        </div>
+        <div class="rule">
+          <div class="rule__id">safebrowsing-hit<span class="rule__kind">veto</span></div>
+          <div class="rule__what">Questo sito è segnalato da Google Safe Browsing come pericoloso (SOCIAL_ENGINEERING).</div>
+        </div>
+      </div>
+      <div class="rulegroup">
+        <div class="rulegroup__head">
+          <h3>Esenzioni</h3>
+          <span class="rulegroup__ask">Valutate per prime. Nessun punteggio sopravvive a un'esenzione.</span>
+        </div>
+        <div class="rule">
+          <div class="rule__id">trusted-brand-domain<span class="rule__kind">esenzione</span></div>
+          <div class="rule__what">Il dominio risulta appartenere davvero al marchio che rappresenta.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">private-network<span class="rule__kind">esenzione</span></div>
+          <div class="rule__what">Indirizzo su rete locale o privata: non è raggiungibile da Internet.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">user-allowlisted<span class="rule__kind">esenzione</span></div>
+          <div class="rule__what">Sito che hai indicato come attendibile nelle impostazioni.</div>
+        </div>
+      </div>
+  </div>
+</section>
+
+<!-- ─── Limiti ───────────────────────────────────────────────────────────── -->
+<section class="band" id="limiti">
+  <div class="wrap">
+    <span class="eyebrow">Limiti</span>
+    <h2>Cosa non sa fare</h2>
+    <p class="lede">
+      Uno strumento di sicurezza che nasconde i propri limiti è peggio di uno che non li ha,
+      perché ti fa abbassare la guardia dove non dovresti.
+    </p>
+
+    <div class="callout callout--flag">
+      <p>
+        <b>Il livello 1 significa «nessun segnale noto», non «sito sicuro».</b>
+        Un kit di phishing su un dominio pulito con certificato valido può non attivare nessuna
+        regola. Nessuna schermata di NonAbbocco ti dirà mai che un sito è sicuro: sostituire la
+        tua prudenza con una certezza falsa farebbe più danni che tacere.
+      </p>
     </div>
 
-    </section>
+    <div class="callout">
+      <p>
+        <b>La lista dei marchi non scala.</b> Nessun elenco curato a mano coprirà i marchi che
+        non abbiamo previsto. Per questo un marchio riconosciuto da solo non produce un rank
+        alto — serve la congiunzione — e per questo la copertura ampia è compito di Safe
+        Browsing, una lista che non manteniamo noi.
+      </p>
+      <p>
+        <b>In Manifest V3 non esiste alcun modo di bloccare una richiesta di rete.</b>
+        NonAbbocco non impedisce il caricamento: lo sostituisce con un avviso entro poche
+        centinaia di millisecondi. Il phishing richiede che tu legga e digiti, ed è quella
+        finestra che si chiude.
+      </p>
+      <p>
+        <b>Non intercetta l'invio via JavaScript.</b> Servirebbe iniettare codice nel contesto
+        della pagina, cioè in casa dell'attaccante: inaffidabile come rilevamento e una
+        superficie d'attacco concreta in cambio. Scelta consapevole, non dimenticanza.
+      </p>
+    </div>
+  </div>
+</section>
 
-    <section id="regole" class="flex flex-col gap-4 scroll-mt-20">
-      <div>
-        <h2 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><span class="text-lg">⚙️</span> Le regole, e come diventano un rank</h2>
-        <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
-          Ogni regola alimenta una delle quattro categorie. Ogni categoria produce un livello di evidenza da 0 a 3
-          <em>saturato</em>, e il rank nasce da una tabella sulla combinazione dei livelli — non da una somma di punti.
-          Questo elenco è generato da <code class="text-indigo-300">src/rules.js</code>, quindi non può divergere dal motore.
-        </p>
-      </div>
+<!-- ─── Installazione ────────────────────────────────────────────────────── -->
+<section class="band" id="installa">
+  <div class="wrap">
+    <span class="eyebrow">Installazione</span>
+    <h2>Non è ancora sugli store</h2>
+    <p class="lede">Si carica in modalità sviluppatore a partire dai file del repository.</p>
 
-      <div class="bg-slate-900 border border-indigo-500/25 rounded-2xl p-4">
-        <h3 class="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-3">Dalla combinazione al rank</h3>
-        <div class="font-mono text-[11px] sm:text-xs text-slate-300 space-y-1.5 overflow-x-auto">
-          <div><span class="text-rose-400">rank 5</span> ⟸ veto — solo un riscontro di Safe Browsing</div>
-          <div><span class="text-orange-400">rank 4</span> ⟸ identità ≥ 2 <span class="text-indigo-400">E</span> credenziali ≥ 1</div>
-          <div><span class="text-amber-400">rank 3</span> ⟸ identità ≥ 2 <span class="text-indigo-400">O</span> (identità ≥ 1 <span class="text-indigo-400">E</span> credenziali ≥ 1) <span class="text-indigo-400">O</span> (trasporto ≥ 2 <span class="text-indigo-400">E</span> credenziali ≥ 1)</div>
-          <div><span class="text-emerald-400">rank 2</span> ⟸ identità ≥ 1 <span class="text-indigo-400">O</span> trasporto ≥ 1 <span class="text-indigo-400">O</span> reputazione ≥ 1</div>
-          <div><span class="text-emerald-400">rank 1</span> ⟸ nessuna evidenza</div>
-        </div>
-        <p class="text-[11px] text-slate-400 leading-relaxed mt-3 pt-3 border-t border-slate-800">
-          Nota che <strong class="text-slate-200">le credenziali non compaiono mai da sole</strong>: una pagina che chiede
-          una password non è per questo sospetta — è la cosa più normale del web. Contano solo in congiunzione con un
-          problema di identità o di trasporto. È questa scelta che ha eliminato i falsi positivi su
-          <code class="text-emerald-300">posteitaliane.it</code> e <code class="text-emerald-300">login.microsoftonline.com</code>.
-        </p>
-      </div>
-
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-        <div class="mb-3">
-          <h3 class="text-sm font-bold text-white">Identità del sito</h3>
-          <p class="text-[11px] text-slate-500 italic">Chi dice di essere questo sito?</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">brand-in-subdomain</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Il nome &quot;PayPal&quot; compare nel sottodominio, ma il dominio reale è un altro: è una tecnica per far leggere un marchio dove non c'è.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">brand-in-registrable-domain</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Il dominio richiama il marchio &quot;PayPal&quot; senza appartenergli.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">homograph-brand-collision</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">L'indirizzo usa caratteri di un altro alfabeto per somigliare a &quot;PayPal&quot;. Scritto per esteso è: pаypal.com</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">mixed-script-label</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">L'indirizzo mescola alfabeti diversi dentro la stessa parola (pаypal), cosa che nessuna lingua richiede.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">userinfo-in-authority</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">L'indirizzo mostra &quot;pаypal.com&quot; prima della chiocciola, ma il sito che stai visitando è in realtà evil.xyz.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">raw-ip-host</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Il sito è raggiunto tramite un indirizzo numerico (185.220.101.5) invece che con un nome di dominio.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">ephemeral-hosting</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">La pagina è ospitata su un servizio gratuito (pages.dev), dove chiunque può pubblicare in pochi minuti.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">suspicious-tld</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">L'estensione del dominio (.xyz) è tra quelle a basso costo più usate per le truffe.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">deep-subdomain-nesting</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">L'indirizzo ha 5 livelli di sottodominio, spesso usati per allontanare il dominio reale dalla vista.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">brand-claimed-in-title</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">La pagina si presenta come &quot;PayPal&quot;, ma il dominio non appartiene a quel marchio.</p>
-        </div>
-        </div>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-        <div class="mb-3">
-          <h3 class="text-sm font-bold text-white">Dati richiesti</h3>
-          <p class="text-[11px] text-slate-500 italic">Cosa ti sta chiedendo?</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">credential-surface</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">La pagina chiede una password.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">sensitive-fields</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">La pagina chiede dati particolarmente sensibili (codice OTP).</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">access-words-in-url</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">L'indirizzo contiene parole tipiche delle pagine di accesso o di sollecito (login).</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">cross-origin-credential-form</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Il modulo invia i dati a un dominio diverso da quello che stai visitando (raccolta-dati.xyz).</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">urgency-language</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Il testo insiste sull'urgenza, tecnica usata per farti agire senza riflettere.</p>
-        </div>
-        </div>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-        <div class="mb-3">
-          <h3 class="text-sm font-bold text-white">Sicurezza della connessione</h3>
-          <p class="text-[11px] text-slate-500 italic">Come lo trasmette?</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">password-over-http</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">La password viaggerebbe in chiaro: la connessione non è cifrata.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">non-standard-port</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-300/90 border-amber-500/25 shrink-0">debole</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Il sito risponde su una porta non standard (8443).</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">opaque-top-level-document</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-orange-500/15 text-orange-300 border-orange-500/30 shrink-0">forte</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">La pagina è caricata da uno schema senza origine verificabile (data:).</p>
-        </div>
-        </div>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-        <div class="mb-3">
-          <h3 class="text-sm font-bold text-white">Reputazione</h3>
-          <p class="text-[11px] text-slate-500 italic">Cosa ne sanno gli altri?</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">safebrowsing-hit</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-rose-500/15 text-rose-300 border-rose-500/30 shrink-0">veto</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Questo sito è segnalato da Google Safe Browsing come pericoloso (SOCIAL_ENGINEERING).</p>
-        </div>
-        </div>
-      </div>
-      <div class="bg-slate-900 border border-emerald-800/40 rounded-2xl p-4">
-        <div class="mb-3">
-          <h3 class="text-sm font-bold text-white">Esenzioni</h3>
-          <p class="text-[11px] text-slate-500 italic">Valutate per prime: nessun punteggio sopravvive a un'esenzione.</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">trusted-brand-domain</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shrink-0">esenzione</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Il dominio risulta appartenere davvero al marchio che rappresenta.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">private-network</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shrink-0">esenzione</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Indirizzo su rete locale o privata: non è raggiungibile da Internet.</p>
-        </div>
-        <div class="border border-slate-800 rounded-xl p-3 bg-slate-950/40">
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <code class="text-[11px] font-mono text-indigo-300">user-allowlisted</code>
-            <span class="text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shrink-0">esenzione</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">Sito che hai indicato come attendibile nelle impostazioni.</p>
-        </div>
-        </div>
-      </div>
-
-      <div class="bg-amber-950/20 border border-amber-600/30 rounded-2xl p-4 flex gap-3">
-        <span class="text-base leading-none shrink-0">⚠️</span>
-        <div class="text-xs text-amber-200/80 leading-relaxed space-y-2">
-          <p><strong class="text-amber-300 font-semibold">Limiti, dichiarati invece che nascosti.</strong>
-          Il rank 1 significa <em>«nessun segnale noto»</em>, non «sito sicuro»: il motore è euristico, e un kit di
-          phishing ospitato su un dominio pulito con certificato valido può non attivare alcuna regola.</p>
-          <p>La lista dei marchi è il collo di bottiglia e non scala: nessuna lista curata a mano coprirà i marchi non
-          previsti. Per questo un marchio riconosciuto da solo non produce un rank alto — serve la congiunzione — e per
-          questo la copertura ampia è compito di Safe Browsing, che è una lista che non manteniamo noi.</p>
-          <p>Usa NonAbbocco come rete di sicurezza aggiuntiva, mai come unica difesa.</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="installazione" class="flex flex-col gap-4 scroll-mt-20">
-      <div>
-        <h2 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><span class="text-lg">📦</span> Installazione</h2>
-        <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
-          L'estensione non è ancora pubblicata sugli store: si carica in modalità sviluppatore dai file del repository.
-        </p>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-          <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-indigo-400"></span> Chrome / Edge / Brave</h3>
-          <ol class="text-xs text-slate-400 space-y-2 list-decimal list-inside leading-relaxed marker:text-slate-600">
+    <div class="install">
+      <div class="panel">
+        <div class="panel__head"><h3>Chrome, Edge, Brave</h3></div>
+        <div class="panel__body">
+          <ol>
             <li>Clona il repository in una cartella locale.</li>
-            <li>Apri <code class="text-amber-300 font-mono bg-slate-950 px-1 py-0.5 rounded">chrome://extensions</code>.</li>
-            <li>Attiva in alto a destra la <strong class="text-slate-200">Modalità sviluppatore</strong>.</li>
-            <li>Clicca <strong class="text-slate-200">Carica estensione non pacchettizzata</strong> e seleziona la cartella.</li>
-            <li>Regola la soglia di blocco dalle <strong class="text-slate-200">Opzioni</strong>.</li>
+            <li>Apri <code>chrome://extensions</code>.</li>
+            <li>Attiva in alto a destra la <b>Modalità sviluppatore</b>.</li>
+            <li>Premi <b>Carica estensione non pacchettizzata</b> e scegli la cartella.</li>
+            <li>Regola la soglia di blocco dalle <b>Opzioni</b>.</li>
           </ol>
         </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-          <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Firefox</h3>
-          <ol class="text-xs text-slate-400 space-y-2 list-decimal list-inside leading-relaxed marker:text-slate-600">
-            <li>Apri <code class="text-amber-300 font-mono bg-slate-950 px-1 py-0.5 rounded">about:debugging#/runtime/this-firefox</code>.</li>
-            <li>Clicca <strong class="text-slate-200">Carica componente aggiuntivo temporaneo</strong>.</li>
-            <li>Seleziona <code class="text-amber-300 font-mono bg-slate-950 px-1 py-0.5 rounded">manifest.json</code>.</li>
+      </div>
+      <div class="panel">
+        <div class="panel__head"><h3>Firefox</h3></div>
+        <div class="panel__body">
+          <ol>
+            <li>Apri <code>about:debugging#/runtime/this-firefox</code>.</li>
+            <li>Premi <b>Carica componente aggiuntivo temporaneo</b>.</li>
+            <li>Seleziona <code>manifest.json</code>.</li>
           </ol>
-          <p class="text-[11px] text-amber-200/70 leading-relaxed mt-3 border-t border-slate-800 pt-2.5">
+          <p class="lede" style="font-size:.82rem;margin-top:.8rem">
             Il caricamento temporaneo si azzera alla chiusura del browser.
           </p>
         </div>
       </div>
-    </section>
-
-  </main>
-
-  <footer class="border-t border-slate-800/80 bg-slate-900/40 mt-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
-      <div class="flex items-center gap-2">
-        <span class="text-sm">🎣</span>
-        <span>NonAbbocco — progetto open source, licenza MIT. Analisi locale, nessun dato inviato a server esterni.</span>
-      </div>
-      <span class="font-mono">Manifest V3 · Chrome &amp; Firefox</span>
     </div>
-  </footer>
 
-  <script type="module">
-    import { evaluateUrlAndPage, CATEGORIES } from './src/scoring.js';
-    import { RANK_LABELS, RANK_SUBTITLES, CATEGORY_LABELS } from './src/messages.it.js';
+    <div class="support">
+      <div class="support__in">
+        <div>
+          <h3>NonAbbocco è gratis e lo resterà</h3>
+          <p>
+            Nessuna telemetria da rivendere, nessuna versione a pagamento, nessun investitore da
+            ripagare. Se ti ha risparmiato un guaio, offrimi un caffè.
+          </p>
+        </div>
+        <a class="btn btn--coffee" href="https://buymeacoffee.com/goeokwihgz" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><path d="M6 1v3M10 1v3M14 1v3"/></svg> Offrimi un caffè</a>
+      </div>
+    </div>
+  </div>
+</section>
 
-    window.__NONABBOCCO_ENGINE_READY__ = true;
+</main>
 
-    let bypassed = false;
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot__in">
+      <div>
+        <a class="brand" href="#top" style="margin-bottom:.7rem">
+          <img src="icons/icon-48.png" alt="">
+          <span class="brand__name">NonAbbocco</span>
+        </a>
+        <p class="foot__note">
+          Analisi interamente locale. Gli indirizzi che visiti non lasciano il browser e non
+          vengono registrati da nessuna parte.
+        </p>
+      </div>
+      <div>
+        <h4>Progetto</h4>
+        <ul>
+          <li><a href="https://github.com/savez/nonAbbocco">Codice sorgente</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/blob/main/docs/RANKING.md">Come decide il rank</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/blob/main/CONTRIBUTING.md">Contribuire</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/issues">Segnala un falso positivo</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Sostieni</h4>
+        <ul>
+          <li><a href="https://buymeacoffee.com/goeokwihgz" rel="noopener">Offrimi un caffè</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/blob/main/SECURITY.md">Segnala una vulnerabilità</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/blob/main/LICENSE">Licenza MIT</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/stargazers">Metti una stella</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot__legal">
+      <span>Manifest V3 · Chrome e Firefox · MIT</span>
+      <span>Nessuna telemetria, nessun analytics</span>
+    </div>
+  </div>
+</footer>
 
-    const SCENARIOS = {
-      legit: { url: 'https://www.paypal.com/it/signin', title: 'Accedi al tuo conto PayPal', action: 'https://www.paypal.com/signin/submit', hasPwd: true, urgency: false },
-      typo: { url: 'https://paypal-secure.xyz/it/login', title: 'Accedi a PayPal - Verifica Sicurezza Obbligatoria', action: '', hasPwd: true, urgency: true },
-      cross: { url: 'https://poste-servizi-online.net/login', title: 'Poste Italiane - Portale Servizi', action: 'http://data-collection-phish.xyz/post.php', hasPwd: true, urgency: true },
-      ip: { url: 'http://185.220.101.5/banca/accedi.htm', title: 'Accesso Riservato Intesa Sanpaolo', action: 'http://185.220.101.5/banca/api/credentials', hasPwd: true, urgency: true }
-    };
+<script type="module">
+import { evaluateUrlAndPage, CATEGORIES } from './src/scoring.js';
+import { RANK_LABELS, RANK_SUBTITLES, CATEGORY_LABELS } from './src/messages.it.js';
 
-    const $ = (id) => document.getElementById(id);
+window.__ENGINE_OK__ = true;
 
-    window.applyPreset = (key) => {
-      const p = SCENARIOS[key];
-      if (!p) return;
-      bypassed = false;
-      $('sim-bypass-alert').classList.add('hidden');
-      $('sim-url').value = p.url;
-      $('sim-title').value = p.title;
-      $('sim-action').value = p.action;
-      $('sim-pwd').checked = p.hasPwd;
-      $('sim-urgency').checked = p.urgency;
-      runSimulation();
-    };
+const $ = (id) => document.getElementById(id);
+let bypassed = false;
 
-    window.triggerBypass = () => {
-      bypassed = true;
-      $('sim-block-overlay').classList.add('hidden');
-      $('sim-bypass-alert').classList.remove('hidden');
-    };
+const SCENARIOS = {
+  legit: { url: 'https://www.paypal.com/it/signin', title: 'Accedi al tuo conto PayPal', action: '', pwd: true, urgency: false },
+  typo:  { url: 'https://paypal-secure.xyz/it/login', title: 'Accedi a PayPal — verifica obbligatoria', action: '', pwd: true, urgency: true },
+  sub:   { url: 'https://paypal.com.verifica-account.xyz/login', title: 'PayPal — conferma i tuoi dati', action: 'https://raccolta-dati.xyz/post.php', pwd: true, urgency: true },
+  pages: { url: 'https://accesso-clienti-2026.pages.dev/signin', title: 'Area riservata', action: '', pwd: true, urgency: false }
+};
 
-    window.cancelBypass = () => {
-      bypassed = false;
-      $('sim-bypass-alert').classList.add('hidden');
-      runSimulation();
-    };
+function applyPreset(key) {
+  const p = SCENARIOS[key];
+  if (!p) return;
+  bypassed = false;
+  $('sim-url').value = p.url;
+  $('sim-title').value = p.title;
+  $('sim-action').value = p.action;
+  $('sim-pwd').checked = p.pwd;
+  $('sim-urgency').checked = p.urgency;
+  for (const b of document.querySelectorAll('.preset')) {
+    b.setAttribute('aria-pressed', String(b.dataset.preset === key));
+  }
+  run();
+}
 
-    window.forceInspectBlock = () => $('sim-block-overlay').classList.remove('hidden');
+function run() {
+  const url = $('sim-url').value.trim();
+  const title = $('sim-title').value.trim();
+  const action = $('sim-action').value.trim();
+  const pwd = $('sim-pwd').checked;
+  const urgency = $('sim-urgency').checked;
+  const threshold = Number.parseInt($('sim-threshold').value, 10) || 5;
 
-    function runSimulation() {
-      const url = $('sim-url').value.trim();
-      const title = $('sim-title').value.trim();
-      const action = $('sim-action').value.trim();
-      const hasPassword = $('sim-pwd').checked;
-      const urgency = $('sim-urgency').checked;
-      const threshold = Number.parseInt($('sim-threshold').value, 10) || 5;
+  $('mock-url').textContent = url || '—';
+  $('fake-title').textContent = title || 'Accedi';
+  $('fake-urgent').classList.toggle('is-hidden', !urgency);
+  $('fake-action').textContent = action ? 'invia a ' + action : 'invia via JavaScript (nessuna action)';
 
-      $('mock-url-text').textContent = url;
-      $('sim-card-title').textContent = title;
-      $('sim-card-action').textContent = action || '(nessuna action: invio via fetch)';
+  const v = evaluateUrlAndPage(url, {
+    hasPassword: pwd,
+    formAction: action || null,
+    title,
+    visibleText: urgency ? 'Verifica necessaria entro 24 ore o il conto sarà sospeso' : ''
+  });
 
-      const urgent = $('sim-card-urgent');
-      urgent.textContent = 'Attenzione: verifica necessaria entro 24 ore.';
-      urgent.classList.toggle('hidden', !urgency);
+  const tone = ['r1', 'r1', 'r2', 'r3', 'r4', 'r5'][v.rank];
+  const chip = $('rank-chip');
+  chip.textContent = v.rank + '/5';
+  chip.className = 'rankchip ' + tone;
+  chip.style.color = 'var(--' + (v.rank >= 5 ? 'flag' : v.rank === 4 ? 'warn' : v.rank === 3 ? 'notice' : 'clear') + ')';
 
-      // Il motore vero, con gli stessi argomenti che usa l'estensione.
-      const v = evaluateUrlAndPage(url, {
-        hasPassword,
-        formAction: action || null,
-        title,
-        visibleText: urgency ? 'Verifica necessaria entro 24 ore o il conto sarà sospeso' : ''
-      });
+  $('block-tag').textContent = RANK_LABELS[v.rank] + ' · ' + v.rank + '/5';
+  $('block-sub').textContent = RANK_SUBTITLES[v.rank];
 
-      const bars = $('sim-meter-bars');
-      bars.innerHTML = '';
-      for (let i = 1; i <= 5; i++) {
-        const b = document.createElement('span');
-        const on = i <= v.rank;
-        const colour = v.rank === 5 ? 'bg-rose-500' : v.rank === 4 ? 'bg-orange-500' : v.rank === 3 ? 'bg-amber-400' : 'bg-emerald-400';
-        b.className = 'w-2 h-3 rounded-sm transition-all ' + (on ? colour : 'bg-slate-800');
-        bars.appendChild(b);
-      }
-
-      const badge = $('sim-badge');
-      badge.textContent = v.rank + '/5';
-      badge.className = 'px-1.5 py-0.5 rounded font-bold text-[10px] border ' + (
-        v.rank >= 4 ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-        : v.rank === 3 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40');
-
-      $('overlay-badge-rank').textContent = 'NONABBOCCO: ' + RANK_LABELS[v.rank].toUpperCase() + ' (' + v.rank + '/5)';
-      $('overlay-subtitle').textContent = RANK_SUBTITLES[v.rank];
-
-      // I livelli per categoria: è questo che rende il verdetto spiegabile,
-      // al posto di un punteggio su 100 che non diceva nulla.
-      const levels = $('overlay-levels');
-      levels.innerHTML = '';
-      for (const c of CATEGORIES) {
-        const level = v.categories[c];
-        const row = document.createElement('div');
-        row.className = 'flex items-center justify-between gap-2';
-        const suppressed = v.suppressed.includes(c);
-        row.innerHTML = '<span class="text-[10px] ' + (suppressed ? 'text-emerald-400/70 line-through' : 'text-slate-400') + '">'
-          + CATEGORY_LABELS[c] + '</span><span class="flex gap-0.5">'
-          + [1, 2, 3].map((n) => '<span class="w-3 h-1.5 rounded-sm ' + (n <= level ? (level >= 2 ? 'bg-rose-400' : 'bg-amber-400') : 'bg-slate-700') + '"></span>').join('')
-          + '</span>';
-        levels.appendChild(row);
-      }
-
-      const list = $('overlay-list');
-      list.innerHTML = '';
-      const reasons = v.fired.filter((f) => f.kind !== 'suppress');
-      if (!reasons.length) {
-        const li = document.createElement('li');
-        li.className = 'text-slate-500 list-none';
-        li.textContent = 'Nessuna anomalia rilevata.';
-        list.appendChild(li);
-      }
-      for (const f of reasons) {
-        const li = document.createElement('li');
-        li.textContent = f.message;
-        list.appendChild(li);
-      }
-
-      const exemptions = v.fired.filter((f) => f.kind === 'suppress');
-      const exemptionBox = $('overlay-exemptions');
-      exemptionBox.innerHTML = '';
-      exemptionBox.classList.toggle('hidden', !exemptions.length);
-      for (const f of exemptions) {
-        const p = document.createElement('div');
-        p.className = 'text-[10px] text-emerald-300/80';
-        p.textContent = '✓ ' + f.message;
-        exemptionBox.appendChild(p);
-      }
-
-      $('diag-rank-desc').textContent = 'Soglia di blocco: livello ' + threshold
-        + ' · livelli ' + CATEGORIES.map((c) => c[0] + v.categories[c]).join(' ');
-
-      const overlay = $('sim-block-overlay');
-      const pill = $('sim-pill-widget');
-      const status = $('diag-status-text');
-
-      if (v.rank >= threshold) {
-        pill.classList.add('hidden');
-        status.textContent = 'Interstiziale attivo (livello ' + v.rank + ' ≥ soglia ' + threshold + ')';
-        status.className = 'font-bold text-rose-400';
-        overlay.classList.toggle('hidden', bypassed);
-      } else {
-        overlay.classList.add('hidden');
-        if (v.rank >= 2) {
-          pill.classList.remove('hidden');
-          $('sim-pill-level').textContent = RANK_LABELS[v.rank] + ' (' + v.rank + '/5)';
-          status.textContent = 'Avviso discreto (livello ' + v.rank + ' < soglia ' + threshold + ')';
-          status.className = 'font-bold text-amber-400';
-        } else {
-          pill.classList.add('hidden');
-          status.textContent = RANK_LABELS[1] + ' (1/5)';
-          status.className = 'font-bold text-emerald-400';
-        }
-      }
+  // I livelli per categoria: sostituiscono il punteggio su 100, che non
+  // spiegava nulla. Ogni riga è una domanda che l'utente capisce.
+  const levels = $('levels');
+  levels.textContent = '';
+  for (const c of CATEGORIES) {
+    const lvl = v.categories[c];
+    const suppressed = v.suppressed.includes(c);
+    const row = document.createElement('div');
+    row.className = 'level' + (suppressed ? ' is-suppressed' : '');
+    const name = document.createElement('span');
+    name.className = 'level__name';
+    name.textContent = CATEGORY_LABELS[c];
+    const pips = document.createElement('span');
+    pips.className = 'level__pips';
+    for (let i = 1; i <= 3; i++) {
+      const pip = document.createElement('i');
+      if (i <= lvl) pip.className = lvl >= 2 ? 'hot' : 'on';
+      pips.appendChild(pip);
     }
+    row.append(name, pips);
+    levels.appendChild(row);
+  }
 
-    window.runSimulation = runSimulation;
-    document.querySelectorAll('#sim-url, #sim-title, #sim-action').forEach((el) => el.addEventListener('input', runSimulation));
-    document.querySelectorAll('#sim-pwd, #sim-urgency, #sim-threshold').forEach((el) => el.addEventListener('change', runSimulation));
-    runSimulation();
-  </script>
-  <script>
-    // Se il modulo non si carica — tipicamente perché la pagina è stata aperta
-    // con file:// — dillo invece di mostrare un simulatore inerte.
-    window.addEventListener('load', () => {
-      if (!window.__NONABBOCCO_ENGINE_READY__) {
-        document.getElementById('engine-warning').classList.remove('hidden');
-      }
-    });
-  </script>
+  const reasons = $('reasons');
+  reasons.textContent = '';
+  const fired = v.fired.filter((f) => f.kind !== 'suppress');
+  if (!fired.length) {
+    const li = document.createElement('li');
+    li.style.listStyle = 'none';
+    li.style.marginLeft = '-1.1rem';
+    li.style.color = 'var(--muted)';
+    li.textContent = 'Nessuna anomalia rilevata.';
+    reasons.appendChild(li);
+  }
+  for (const f of fired) {
+    const li = document.createElement('li');
+    li.textContent = f.message;
+    reasons.appendChild(li);
+  }
+
+  // Le esenzioni spiegano perché qualcosa NON è stato segnalato, che è
+  // informazione utile quanto il contrario.
+  const exempt = $('exempt');
+  exempt.textContent = '';
+  const exemptions = v.fired.filter((f) => f.kind === 'suppress');
+  exempt.classList.toggle('is-hidden', !exemptions.length);
+  for (const f of exemptions) {
+    const d = document.createElement('div');
+    d.textContent = '✓ ' + f.message;
+    exempt.appendChild(d);
+  }
+
+  $('diag-levels').textContent = CATEGORIES.map((c) => c.slice(0, 2) + v.categories[c]).join(' ');
+
+  const block = $('block');
+  const pill = $('pill');
+  const bypassBar = $('bypass');
+  bypassBar.classList.toggle('is-hidden', !bypassed);
+
+  if (v.rank >= threshold) {
+    pill.classList.add('is-hidden');
+    block.classList.toggle('is-hidden', bypassed);
+    $('diag-state').textContent = bypassed
+      ? 'blocco ignorato dall\'utente'
+      : 'interstiziale attivo — livello ' + v.rank + ' ≥ soglia ' + threshold;
+  } else {
+    block.classList.add('is-hidden');
+    if (v.rank >= 2) {
+      pill.classList.remove('is-hidden');
+      $('pill-level').textContent = RANK_LABELS[v.rank] + ' (' + v.rank + '/5)';
+      $('diag-state').textContent = 'avviso discreto — livello ' + v.rank + ' < soglia ' + threshold;
+    } else {
+      pill.classList.add('is-hidden');
+      $('diag-state').textContent = RANK_LABELS[1].toLowerCase();
+    }
+  }
+}
+
+for (const b of document.querySelectorAll('.preset')) {
+  b.addEventListener('click', () => applyPreset(b.dataset.preset));
+}
+for (const id of ['sim-url', 'sim-title', 'sim-action']) $(id).addEventListener('input', run);
+for (const id of ['sim-pwd', 'sim-urgency', 'sim-threshold']) $(id).addEventListener('change', run);
+$('pill-details').addEventListener('click', () => $('block').classList.remove('is-hidden'));
+$('go-safe').addEventListener('click', () => applyPreset('legit'));
+$('go-anyway').addEventListener('click', () => { bypassed = true; run(); });
+$('bypass-undo').addEventListener('click', () => { bypassed = false; run(); });
+
+document.querySelector('.preset[data-preset="typo"]')?.setAttribute('aria-pressed', 'true');
+run();
+</script>
+
+<script>
+// La rivelazione dell'hero: prima quello che leggi, poi quello che è.
+// Se l'utente ha chiesto meno animazioni, mostra subito lo stato finale.
+(function () {
+  var el = document.getElementById('anatomy');
+  if (!el) return;
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (still) { el.classList.add('is-revealed'); return; }
+  setTimeout(function () { el.classList.add('is-revealed'); }, 700);
+})();
+
+// Se il modulo non si carica — tipicamente perché la pagina è aperta con
+// file:// — dillo, invece di mostrare un simulatore inerte.
+window.addEventListener('load', function () {
+  if (!window.__ENGINE_OK__) document.getElementById('engine-warning').classList.remove('is-hidden');
+});
+</script>
 </body>
 </html>
