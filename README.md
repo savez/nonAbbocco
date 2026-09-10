@@ -1,0 +1,191 @@
+<p align="center">
+  <img src="assets/banner.svg" alt="NonAbbocco — non abboccare all'esca del phishing. Estensione Chrome e Firefox con ranking di rischio 1-5." width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/savez/nonAbbocco/actions/workflows/ci.yml"><img src="https://github.com/savez/nonAbbocco/actions/workflows/ci.yml/badge.svg" alt="Stato della CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licenza-MIT-blue" alt="Licenza MIT"></a>
+  <img src="https://img.shields.io/badge/Manifest-V3-4f46e5" alt="Manifest V3">
+  <img src="https://img.shields.io/badge/browser-Chrome%20%7C%20Firefox-f43f5e" alt="Chrome e Firefox">
+  <img src="https://img.shields.io/badge/telemetria-nessuna-34d399" alt="Nessuna telemetria">
+</p>
+
+Il phishing non ti frega perché sei distratto: ti frega perché l'indirizzo *sembra* giusto.
+`paypal.com.verifica-account.xyz` comincia con "paypal.com", e a colpo d'occhio è quello che leggi.
+
+NonAbbocco guarda l'indirizzo e il contenuto di ogni pagina che apri, assegna un **ranking di
+rischio da 1 a 5** e interviene prima che tu digiti le credenziali. Tutto in locale: nessun dato
+lascia il browser.
+
+## Cosa riconosce
+
+| | Esempio |
+|---|---|
+| Marchio nel sottodominio di un dominio altrui | `paypal.com.verifica-account.xyz` |
+| Typosquatting sul dominio registrabile | `paypal-secure.xyz`, `inps-rimborso.top` |
+| Omografi con alfabeti diversi | `аррӏе.com` scritto in cirillico |
+| Alfabeti mescolati dentro la stessa parola | `pаypal.com` con la `а` cirillica |
+| Testo civetta prima della chiocciola | `https://paypal.com@evil-collector.xyz` |
+| Hosting effimero con TLS valido | `random-kit.pages.dev/signin` |
+| Credenziali su HTTP in chiaro | qualunque login senza cifratura |
+| Indirizzi IP pubblici al posto di un dominio | `http://185.220.101.5/banca/accedi` |
+
+Copre **50 marchi** — banche italiane, Poste, corrieri, INPS, Agenzia delle Entrate, utility,
+telco, grandi piattaforme e cripto — ciascuno con l'elenco esplicito dei propri domini legittimi.
+
+## Come decide
+
+Il rank **non** è una somma di punti. Un modello additivo dava lo stesso verdetto a
+`paypal-secure.xyz/login` e a `www.posteitaliane.it`: 55 punti entrambi, cioè un attacco da
+manuale e il sito vero di Poste trattati allo stesso modo.
+
+Ogni regola alimenta invece una delle quattro categorie, ognuna con un livello di evidenza da 0 a
+3, e il rank nasce dalla combinazione:
+
+| Categoria | La domanda a cui risponde |
+|---|---|
+| `identity` | Chi dice di essere questo sito? |
+| `credentials` | Cosa ti sta chiedendo? |
+| `transport` | Come lo trasmette? |
+| `reputation` | Cosa ne sanno gli altri? |
+
+```
+rank 5  ⟸  veto — solo un riscontro di Safe Browsing
+rank 4  ⟸  identità ≥ 2  E  credenziali ≥ 1
+rank 3  ⟸  identità ≥ 2  O  (identità ≥ 1 E credenziali ≥ 1)  O  (trasporto ≥ 2 E credenziali ≥ 1)
+rank 2  ⟸  identità ≥ 1  O  trasporto ≥ 1  O  reputazione ≥ 1
+rank 1  ⟸  nessuna evidenza
+```
+
+Nota che **le credenziali non compaiono mai da sole**: una pagina che chiede una password non è
+per questo sospetta — è la cosa più normale del web. Contano solo in congiunzione. È questa scelta
+che ha eliminato i falsi positivi su `posteitaliane.it` e `login.microsoftonline.com`, e che
+impedisce di bloccare il router di casa su `192.168.1.1`.
+
+Il processo completo, con i casi svolti, è in **[docs/RANKING.md](docs/RANKING.md)**.
+
+> [!IMPORTANT]
+> **Il rank 1 significa «nessun segnale noto», non «sito sicuro».** Il motore è euristico: un kit
+> di phishing su un dominio pulito con certificato valido può non attivare alcuna regola. Nessuna
+> schermata di NonAbbocco dirà mai che un sito è sicuro, perché sostituire la tua prudenza con una
+> falsa certezza farebbe più danni che tacere.
+
+## Provalo senza installare nulla
+
+La pagina di progetto include un **simulatore interattivo**: costruisci una pagina fittizia e
+guarda come reagisce il motore. I verdetti li produce lo stesso codice che gira nell'estensione,
+perché la pagina importa `src/scoring.js`.
+
+```bash
+git clone https://github.com/savez/nonAbbocco.git && cd nonAbbocco
+npx serve .        # poi apri http://localhost:3000/simulator.html
+```
+
+Serve un server: la pagina importa un modulo ES, e i moduli non si caricano con `file://`.
+
+## Installazione
+
+L'estensione non è ancora pubblicata sugli store.
+
+<details>
+<summary><b>Chrome, Edge, Brave</b></summary>
+
+1. Clona il repository.
+2. Apri `chrome://extensions`.
+3. Attiva in alto a destra la **Modalità sviluppatore**.
+4. **Carica estensione non pacchettizzata** e seleziona la cartella.
+5. Regola la soglia di blocco dalle **Opzioni**.
+
+</details>
+
+<details>
+<summary><b>Firefox</b></summary>
+
+1. Apri `about:debugging#/runtime/this-firefox`.
+2. **Carica componente aggiuntivo temporaneo**.
+3. Seleziona `manifest.json`.
+
+Il caricamento temporaneo si azzera alla chiusura del browser.
+
+</details>
+
+## Privacy
+
+L'analisi è **interamente locale**. Nessuna telemetria, nessun analytics, nessuna chiamata di rete
+per stabilire un verdetto. Gli URL che visiti non lasciano il browser e non vengono registrati da
+nessuna parte.
+
+L'unica eccezione è opzionale e disattivata per default: **Google Safe Browsing**.
+
+<details>
+<summary><b>Se attivi Safe Browsing</b></summary>
+
+Serve una **tua** chiave API, che inserisci nelle opzioni: nel repository non c'è né ci sarà
+nessuna chiave. Senza chiave l'estensione funziona identica, con le sole euristiche.
+
+Come funziona il protocollo: l'URL viene canonicalizzato e ridotto a **prefissi di hash SHA-256 di
+4 byte**, e sono quelli a viaggiare — non l'indirizzo. Google riceve un prefisso ambiguo, che
+corrisponde a moltissimi URL diversi, e non può ricostruire dove stai navigando. La verifica
+avviene solo quando le euristiche hanno già prodotto un rank ≥ 3, quindi la maggioranza delle
+pagine non genera alcuna richiesta.
+
+Due avvertenze: la Safe Browsing API è **riservata a un uso non commerciale**, e la chiave viene
+salvata in `storage.local` — non in `storage.sync` — per non finire sincronizzata sul cloud.
+
+</details>
+
+## Limiti, dichiarati invece che nascosti
+
+- **La lista dei marchi è il collo di bottiglia e non scala.** Nessuna lista curata a mano coprirà
+  i marchi non previsti. Per questo un marchio riconosciuto da solo non produce un rank alto, e per
+  questo la copertura ampia è compito di Safe Browsing — una lista che non manteniamo noi.
+- **In Manifest V3 non esiste alcun hook di rete bloccante**, quindi la pagina inizia a caricarsi
+  prima che il verdetto esista. NonAbbocco non impedisce il caricamento: lo sostituisce con un
+  interstiziale entro poche centinaia di millisecondi. Il phishing richiede che tu *legga* e
+  *digiti*, e questo è ciò che la finestra chiude.
+- **Non intercetta l'esfiltrazione via `fetch()`.** Sarebbe possibile solo iniettando codice nel
+  contesto della pagina, cioè in un ambiente controllato dall'attaccante: inaffidabile come
+  rilevamento e una superficie d'attacco concreta in cambio. Scelta consapevole.
+- **Niente età del dominio né dati WHOIS**: richiederebbero una chiamata di rete nel percorso di
+  ogni navigazione, con la latenza e la fuga di privacy che ne seguono.
+
+Usalo come rete di sicurezza aggiuntiva, mai come unica difesa.
+
+## Sviluppo
+
+Nessuna dipendenza da installare, nessuno step di build.
+
+```bash
+node --test                  # la suite completa
+npm run page                 # rigenera simulator.html
+npm run icons                # rigenera le icone PNG
+npm run banner               # rigenera il banner del README
+npm run update-psl           # riscarica la Public Suffix List
+npm run package              # archivi per Chrome e Firefox in dist/
+```
+
+```
+src/scoring.js      il motore: categorie, saturazione, rank. ESM puro, zero API browser
+src/rules.js        le regole come DATI, non come if annidati
+src/brands.js       marchi → domini legittimi espliciti
+src/psl.js          dominio registrabile via Public Suffix List
+src/idn.js          punycode, mixed-script, skeleton dei confondibili
+test/corpus/        i due corpus: siti legittimi e pagine di phishing
+```
+
+Il **corpus è il contratto**. `benign.json` fissa il rank massimo accettabile per i siti
+legittimi, `malicious.json` il minimo richiesto per le pagine di phishing. Una modifica ai pesi
+che fa regredire uno dei due rompe la build — è così che si ricalibra il motore senza modello
+statistico.
+
+Il contributo più utile non è una regola nuova: è **un caso ben documentato nel corpus**. Dettagli
+in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Sicurezza
+
+Per segnalare una vulnerabilità **non aprire una issue pubblica**: le istruzioni e il modello di
+minaccia sono in [SECURITY.md](SECURITY.md).
+
+## Licenza
+
+[MIT](LICENSE) — Saverio Menin.

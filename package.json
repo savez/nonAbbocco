@@ -7,11 +7,12 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test",
+    "page": "node tools/build-page.mjs",
+    "banner": "node tools/build-banner.mjs",
+    "icons": "node tools/make-icons.mjs",
+    "update-psl": "node tools/update-psl.mjs",
     "package": "node tools/package.mjs",
     "package:chrome": "node tools/package.mjs --chrome",
-    "package:firefox": "node tools/package.mjs --firefox",
-    "icons": "node tools/make-icons.mjs",
-    "page": "node tools/build-page.mjs",
-    "update-psl": "node tools/update-psl.mjs"
+    "package:firefox": "node tools/package.mjs --firefox"
   }
 }
