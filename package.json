@@ -7,6 +7,11 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test",
+    "package": "node tools/package.mjs",
+    "package:chrome": "node tools/package.mjs --chrome",
+    "package:firefox": "node tools/package.mjs --firefox",
+    "icons": "node tools/make-icons.mjs",
+    "page": "node tools/build-page.mjs",
     "update-psl": "node tools/update-psl.mjs"
   }
 }

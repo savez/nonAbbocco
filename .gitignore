@@ -20,3 +20,7 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Archivi generati per gli store
+dist/
+icons/*.png.bak
