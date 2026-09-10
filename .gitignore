@@ -1,0 +1,22 @@
+node_modules/
+
+# Artefatti di packaging dell'estensione
+*.zip
+*.xpi
+*.crx
+*.pem
+web-ext-artifacts/
+
+# Chiavi e configurazioni locali: la API key di Safe Browsing non deve
+# mai finire nel repo, che è pubblico.
+.env
+.env.*
+*.key
+secrets.json
+
+# Sistema operativo ed editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
