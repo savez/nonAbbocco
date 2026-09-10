@@ -2,6 +2,28 @@
  * NonAbbocco Defender - Content Script (content.js)
  * Analisi euristica combinata di URL e DOM, calcolo Ranking 1-5,
  * gestione della soglia personalizzata via chrome.storage e layer protetto in Closed Shadow DOM.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ATTENZIONE — STATO DI TRANSIZIONE
+ *
+ * La definizione CANONICA dello scoring è ora `src/scoring.js`, coperta da
+ * test. Le euristiche qui sotto sono una copia storica che resta in vita solo
+ * finché il service worker non prende il suo posto: i content script non
+ * possono essere moduli ES su nessuno dei due browser, quindi questo file non
+ * può importare il motore.
+ *
+ * Non modificare le euristiche qui: modificale in `src/scoring.js`. Questo
+ * file verrà svuotato della logica decisionale e ridotto alla sola raccolta di
+ * segnali DOM, perché gira su <all_urls> — cioè anche dentro la pagina
+ * dell'attaccante — e non deve contenere né segreti né decisioni.
+ *
+ * Difetti noti e ancora presenti in questo file, documentati in
+ * docs/RANKING.md e coperti dal corpus in test/corpus/:
+ *   - l'overlay e la pillola sono nodi del DOM della pagina, quindi la pagina
+ *     ostile li rimuove con una riga di JS;
+ *   - il bypass vive in sessionStorage, che la pagina può scrivere da sé;
+ *   - il parametro `reasons` di injectDiscreetPill non è mai usato.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 (function () {
   'use strict';

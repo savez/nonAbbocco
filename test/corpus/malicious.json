@@ -1,0 +1,77 @@
+{
+  "_comment": "Pagine di phishing. `minRank` è il rank minimo che il motore deve raggiungere. In P2 alcuni casi hanno `legacyRank` INFERIORE a `minRank`: sono i falsi negativi noti, registrati come tali e che P3 deve chiudere.",
+  "cases": [
+    {
+      "id": "typosquatting-con-trattino",
+      "url": "https://paypal-secure.xyz/login",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 4,
+      "legacyRank": 3,
+      "note": "Falso negativo storico e caso da manuale: 55 punti, quindi nessun blocco. La regola sul TLC a rischio non scatta perché cerca 'login' nell'hostname, mentre qui sta nel path."
+    },
+    {
+      "id": "typosquatting-login-nell-host",
+      "url": "https://login-paypal.xyz/",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 4,
+      "legacyRank": 5,
+      "note": "Identico al precedente per sostanza, ma 85 punti solo perché 'login' sta nell'hostname anziché nel path. È la prova dell'incoerenza del vecchio modello."
+    },
+    {
+      "id": "brand-nel-sottodominio",
+      "url": "https://paypal.com.verifica-account.xyz/login",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 4,
+      "legacyRank": 5,
+      "note": "Il dominio registrabile è verifica-account.xyz, non paypal.com."
+    },
+    {
+      "id": "hosting-effimero-tls-valido",
+      "url": "https://random-kit.pages.dev/signin",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 3,
+      "legacyRank": 1,
+      "note": "Falso negativo storico più grave: nessuna delle sei regole scatta, quindi il verdetto è 'Ritenuto Sicuro'. È la forma dominante del phishing attuale: dominio pulito, TLS valido, esfiltrazione via fetch."
+    },
+    {
+      "id": "userinfo-nell-authority",
+      "url": "https://paypal.com@evil-collector.xyz/login",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 4,
+      "legacyRank": 1,
+      "note": "Falso negativo storico: l'hostname reale è evil-collector.xyz, ma il motore non ha alcuna regola sull'userinfo. Verificato: nessuna regola scatta."
+    },
+    {
+      "id": "ip-grezzo-pubblico-banca",
+      "url": "http://185.220.101.5/banca/accedi.htm",
+      "hasPassword": true,
+      "formAction": "http://185.220.101.5/banca/api/credentials",
+      "minRank": 4,
+      "legacyRank": 5,
+      "note": "Scenario già presente nel simulatore."
+    },
+    {
+      "id": "form-verso-c2-esterno",
+      "url": "https://poste-servizi-online.net/login",
+      "hasPassword": true,
+      "formAction": "http://data-collection-phish.xyz/post.php",
+      "minRank": 4,
+      "legacyRank": 5,
+      "note": "Scenario già presente nel simulatore: brand imitato più esfiltrazione cross-origin."
+    },
+    {
+      "id": "credenziali-su-http",
+      "url": "http://accesso-clienti.example/login",
+      "hasPassword": true,
+      "formAction": null,
+      "minRank": 3,
+      "legacyRank": 3,
+      "note": "Password in chiaro su HTTP: 50 punti."
+    }
+  ]
+}

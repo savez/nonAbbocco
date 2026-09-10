@@ -1,0 +1,104 @@
+{
+  "_comment": "Siti legittimi. `maxRank` è il rank massimo accettabile: superarlo è un falso positivo. In P2 alcuni casi hanno `legacyRank` diverso da `maxRank`: sono i falsi positivi noti, registrati come tali e che P3 deve chiudere.",
+  "cases": [
+    {
+      "id": "poste-italiane-reale",
+      "url": "https://www.posteitaliane.it/",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 1,
+      "legacyRank": 3,
+      "note": "Falso positivo storico: il brand 'poste' matcha per substring e l'allowlist accetta solo poste.it/.com, quindi il sito vero di Poste viene marcato come typosquatting. La voce 'posteitaliane' nell'array è codice morto perché 'poste' matcha prima e fa break."
+    },
+    {
+      "id": "poste-apex",
+      "url": "https://poste.it/",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 1,
+      "legacyRank": 1,
+      "note": "Passa solo perché coincide esattamente con l'allowlist hardcoded."
+    },
+    {
+      "id": "microsoft-login-reale",
+      "url": "https://login.microsoftonline.com/",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 1,
+      "legacyRank": 3,
+      "note": "Falso positivo storico: è la pagina di login Microsoft vera."
+    },
+    {
+      "id": "google-uk",
+      "url": "https://www.google.co.uk/",
+      "hasPassword": false,
+      "formAction": null,
+      "maxRank": 1,
+      "legacyRank": 3,
+      "note": "Falso positivo storico: l'allowlist non conosce i ccTLD."
+    },
+    {
+      "id": "amazon-de",
+      "url": "https://www.amazon.de/",
+      "hasPassword": false,
+      "formAction": null,
+      "maxRank": 1,
+      "legacyRank": 3,
+      "note": "Falso positivo storico: come sopra."
+    },
+    {
+      "id": "router-lan",
+      "url": "http://192.168.1.1/login",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 2,
+      "legacyRank": 5,
+      "note": "Falso positivo storico grave: IP grezzo (+45) più HTTP con password (+50) = 95, quindi blocco a schermo intero sul router di casa dell'utente."
+    },
+    {
+      "id": "dev-server-loopback",
+      "url": "http://127.0.0.1:3000/login",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 2,
+      "legacyRank": 5,
+      "note": "Falso positivo storico: blocco su ogni dev server locale."
+    },
+    {
+      "id": "dev-server-localhost",
+      "url": "http://localhost:3000/login",
+      "hasPassword": true,
+      "formAction": null,
+      "maxRank": 2,
+      "legacyRank": 3,
+      "note": "Meno grave del precedente solo perché 'localhost' non è un IP e quindi la regola IP non scatta."
+    },
+    {
+      "id": "sso-cross-origin-legittimo",
+      "url": "https://app.esempio-azienda.it/signin",
+      "hasPassword": true,
+      "formAction": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "maxRank": 2,
+      "legacyRank": 4,
+      "note": "Falso positivo storico: il federated login legittimo posta verso un IdP su un altro dominio, che la regola cross-origin (+65) tratta come esfiltrazione."
+    },
+    {
+      "id": "banca-italiana",
+      "url": "https://www.intesasanpaolo.com/",
+      "hasPassword": false,
+      "formAction": null,
+      "maxRank": 1,
+      "legacyRank": 1,
+      "note": "Passa già oggi, perché www.intesasanpaolo.com finisce per '.intesasanpaolo.com' e quindi l'allowlist lo riconosce. Serve da sentinella: dopo P3 deve continuare a passare."
+    },
+    {
+      "id": "idn-legittimo",
+      "url": "https://xn--80ak6aa92e.com/",
+      "hasPassword": false,
+      "formAction": null,
+      "maxRank": 2,
+      "legacyRank": 3,
+      "note": "Falso positivo storico: qualunque dominio IDN prende +40 per la sola presenza di 'xn--', senza verificare mixed-script o confondibilità."
+    }
+  ]
+}
