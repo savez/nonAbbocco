@@ -66,6 +66,28 @@ Prima di proporre una regola, chiediti se produce falsi positivi su login legitt
 senza `action`, i campi password iniettati da JavaScript e gli iframe cross-origin con credenziali
 sono **comportamento normale** del web moderno, non segnali di attacco.
 
+## La pagina di progetto è generata
+
+`simulator.html` **non si modifica a mano**: lo genera `tools/build-page.mjs`, e una modifica
+diretta sparisce al primo `npm run page`. La pagina importa `src/scoring.js` e costruisce la
+tabella delle regole da `src/rules.js` proprio perché non possa mostrare numeri diversi da quelli
+che l'estensione produce.
+
+Per cambiarne il contenuto:
+
+- **struttura, testi, sezioni** → `tools/build-page.mjs`
+- **il simulatore vero e proprio** → `tools/page-parts/simulator-ui.html`
+
+```bash
+npm run page && npx serve .   # poi http://localhost:3000/simulator.html
+```
+
+Serve un server: la pagina importa un modulo ES, e i moduli non si caricano con `file://`.
+
+Il deploy su GitHub Pages pubblica il file committato, ma il workflow confronta con quello
+rigenerato e segnala la deriva nel sommario del job — così una modifica a mano è visibile invece
+di sparire in silenzio.
+
 ## Commit e rilasci
 
 Il versionamento è automatico via [release-please](https://github.com/googleapis/release-please),

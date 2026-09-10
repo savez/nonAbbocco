@@ -1,0 +1,106 @@
+name: pages
+
+# Pubblica la pagina di progetto su GitHub Pages.
+#
+# Il sito è `simulator.html` servito come index. Servono anche `src/`, perché
+# la pagina importa `src/scoring.js` come modulo ES per mostrare i verdetti
+# del motore vero invece di una copia, e `assets/` + `icons/` per banner e
+# favicon.
+#
+# NOTA SULLA DERIVA: `simulator.html` è generato da tools/build-page.mjs. Il
+# deploy pubblica il file COMMITTATO, così una tua modifica diretta va online
+# subito. Ma il passo "deriva" qui sotto rigenera la pagina e confronta: se
+# differisce, te lo scrive nel sommario del job, perché quella modifica
+# sparirebbe al prossimo `npm run page`. Le modifiche durature vanno fatte in
+# tools/build-page.mjs o tools/page-parts/simulator-ui.html.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'simulator.html'
+      - 'src/**'
+      - 'assets/**'
+      - 'icons/**'
+      - 'tools/build-page.mjs'
+      - 'tools/page-parts/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# Permessi minimi necessari al deploy su Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un deploy alla volta; le esecuzioni in coda vengono sostituite dall'ultima.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Controllo della deriva rispetto ai sorgenti
+        run: |
+          cp simulator.html /tmp/committed.html
+          node tools/build-page.mjs > /dev/null
+          if diff -q /tmp/committed.html simulator.html > /dev/null; then
+            echo "✅ simulator.html è allineato con tools/build-page.mjs" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### ⚠️ simulator.html è stato modificato a mano"
+              echo ""
+              echo "Il file committato differisce da quello che \`tools/build-page.mjs\` genera."
+              echo "**Questo deploy pubblica comunque la tua versione**, ma la modifica sparirà"
+              echo "al prossimo \`npm run page\`."
+              echo ""
+              echo "Per renderla duratura, spostala in \`tools/build-page.mjs\` oppure in"
+              echo "\`tools/page-parts/simulator-ui.html\`."
+              echo ""
+              echo '<details><summary>Differenze</summary>'
+              echo ''
+              echo '```diff'
+              diff -u /tmp/committed.html simulator.html | head -80 || true
+              echo '```'
+              echo '</details>'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # Ripristina la versione committata: è quella che va online.
+          cp /tmp/committed.html simulator.html
+
+      - name: Composizione del sito
+        run: |
+          mkdir -p _site
+          cp simulator.html _site/index.html
+          cp -r src _site/src
+          cp -r assets _site/assets
+          cp -r icons _site/icons
+          # Senza questo file Pages passerebbe l'output attraverso Jekyll, che
+          # ignora le cartelle il cui nome comincia per underscore.
+          touch _site/.nojekyll
+          echo "File pubblicati:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          find _site -type f | sort | sed 's|_site/||' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
