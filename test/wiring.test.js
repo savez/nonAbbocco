@@ -94,6 +94,18 @@ test('il content script ignora i sottoframe', () => {
   assert.match(contentScript, /window\.top\s*!==\s*window/);
 });
 
+test('il bypass non vive dentro la pagina', () => {
+  // `sessionStorage` è scrivibile dalla pagina: finché il bypass stava lì, un
+  // sito ostile poteva dichiararsi già scavalcato dall'utente e non essere mai
+  // bloccato. Ora la decisione la tiene il background in `storage.session`,
+  // che i content script non possono né leggere né scrivere.
+  // Sull'USO, non sulla parola: il commento che spiega perché il bypass se
+  // n'è andato deve poter nominare il posto da cui se n'è andato.
+  assert.doesNotMatch(contentScript, /sessionStorage\s*\./,
+    'il content script usa ancora sessionStorage: il bypass è forgiabile dalla pagina');
+  assert.match(background, /bypass/, 'il background non gestisce il bypass');
+});
+
 // ─── L'allowlist è collegata ─────────────────────────────────────────────────
 
 test('il background alimenta davvero la regola user-allowlisted', () => {

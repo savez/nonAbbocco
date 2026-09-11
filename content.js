@@ -2,7 +2,7 @@
  * NonAbbocco Defender — Content Script (content.js)
  *
  * Raccoglie segnali dal DOM, li manda al background, disegna quello che il
- * background risponde. Non decide nulla.
+ * background risponde. Non decide nulla, e non ricorda nulla.
  *
  * ─── PERCHÉ NON DECIDE NULLA ─────────────────────────────────────────────────
  *
@@ -22,15 +22,27 @@
  * Quello che resta qui è deliberatamente stupido: leggere il DOM, spedire,
  * disegnare.
  *
- * ─── DIFETTI NOTI ANCORA PRESENTI ────────────────────────────────────────────
+ * ─── PERCHÉ NON RICORDA NULLA ────────────────────────────────────────────────
  *
- * Documentati in docs/RANKING.md:
- *   - l'overlay e la pillola sono nodi del DOM della pagina, quindi la pagina
- *     ostile li rimuove con una riga di JS;
- *   - il bypass vive in sessionStorage, che la pagina può scrivere da sé.
+ * Il bypass — la scelta dell'utente di procedere comunque — stava in
+ * `sessionStorage`, che è memoria DELLA PAGINA. Una pagina ostile poteva
+ * scriversi da sola `nonabbocco_bypass_<host> = true` e dichiararsi già
+ * scavalcata, quindi non essere mai bloccata. Non era un difetto di questo
+ * file: era il posto sbagliato dove tenere una decisione.
  *
- * Nessuno dei due è risolvibile da dentro un content script; la strada è
- * `declarativeNetRequest` con una pagina di interstiziale dell'estensione.
+ * Ora la concessione la registra il background in `storage.session`, che i
+ * content script non possono né leggere né scrivere. Qui resta solo il click:
+ * un messaggio che parte da questa pagina e che il background accetta soltanto
+ * se arriva dal documento principale di una scheda reale — condizione che
+ * verifica su dati scritti dal browser, non dalla pagina.
+ *
+ * ─── DIFETTO NOTO ANCORA PRESENTE ────────────────────────────────────────────
+ *
+ * L'overlay e la pillola sono nodi del DOM della pagina, quindi la pagina
+ * ostile li rimuove con una riga di JS. Non è risolvibile da dentro un content
+ * script: la strada è un interstiziale che sia una pagina dell'estensione,
+ * raggiunta con `webNavigation` prima che la pagina esista. È la Fase 5 di
+ * docs/ROADMAP.md.
  */
 (function () {
   'use strict';
@@ -55,8 +67,6 @@
 
   /** Oltre questo numero i nomi dei campi non aggiungono informazione. */
   const MAX_FIELD_NAMES = 200;
-
-  const bypassStorageKey = `nonabbocco_bypass_${window.location.hostname.toLowerCase()}`;
 
   run();
 
@@ -138,9 +148,10 @@
   // ─── RENDERING ─────────────────────────────────────────────────────────────
 
   /**
-   * @param {{verdict: object, blockThreshold: number, presentation: object}} response
+   * @param {{verdict: object, blockThreshold: number, presentation: object,
+   *          bypassed: boolean}} response
    */
-  function render({ verdict, blockThreshold, presentation }) {
+  function render({ verdict, blockThreshold, presentation, bypassed }) {
     // Le soppressioni spiegano perché NON è scattato nulla: non sono anomalie
     // e non vanno elencate come tali.
     const reasons = (verdict.fired || [])
@@ -148,22 +159,14 @@
       .map((f) => f.message);
 
     if (presentation.rank >= blockThreshold) {
-      // Il bypass non impedisce più l'analisi, solo il blocco. Prima usciva
-      // prima di analizzare, e il popup restava muto proprio sulle pagine che
-      // l'utente aveva scelto di scavalcare — cioè quelle su cui avrebbe avuto
-      // più senso poter riguardare il verdetto.
-      if (isBypassed()) return;
+      // Il bypass non impedisce l'analisi, solo il blocco: il verdetto viene
+      // comunque calcolato e archiviato, così il popup può mostrarlo anche
+      // sulle pagine che l'utente ha scelto di scavalcare — cioè proprio
+      // quelle su cui ha più senso poterlo riguardare.
+      if (bypassed) return;
       injectFullBlockOverlay(presentation, reasons);
     } else if (presentation.rank >= 2) {
       injectDiscreetPill(presentation, reasons);
-    }
-  }
-
-  function isBypassed() {
-    try {
-      return sessionStorage.getItem(bypassStorageKey) === 'true';
-    } catch {
-      return false;
     }
   }
 
@@ -237,10 +240,13 @@
     });
 
     shadow.getElementById('btn-bypass').addEventListener('click', () => {
-      try {
-        sessionStorage.setItem(bypassStorageKey, 'true');
-      } catch { /* pagina senza sessionStorage: il bypass vale per questa vista */ }
+      // L'overlay sparisce subito: far aspettare l'utente il ritorno del
+      // messaggio farebbe sembrare rotto il bottone. Se la registrazione non
+      // riesce, la conseguenza è che l'avviso ricompare al prossimo
+      // caricamento — cioè si sbaglia dalla parte della prudenza.
       root.remove();
+      api.runtime.sendMessage({ type: 'bypass', url: window.location.href })
+        .catch(() => {});
     });
   }
 

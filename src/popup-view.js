@@ -140,6 +140,10 @@ export function buildPopupView(entry, now = 0) {
     // Un verdetto di sola fase `url` non ha visto il DOM: dirlo, perché
     // l'assenza di segnali sulle credenziali in quel caso non significa nulla.
     partial: verdict.phase !== 'full',
+    // L'utente ha scelto di procedere comunque. Il verdetto resta quello che
+    // è — il bypass non lo abbassa — ma senza dirlo il popup mostrerebbe un
+    // rango alto e nessun blocco sullo schermo, e sembrerebbe rotto.
+    bypassed: entry.bypassed === true,
     age: formatAge(entry.at, now)
   };
 }
