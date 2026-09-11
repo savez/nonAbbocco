@@ -162,6 +162,24 @@
       "url": "https://abcdef123.execute-api.eu-west-1.amazonaws.com/prod/stato",
       "maxRank": 1,
       "note": "Le label `execute-api` e `eu-west-1` le impone AWS, non chi usa l'endpoint: l'unica scelta da lui è `abcdef123`. Contare anche quelle faceva scattare 'deep-subdomain-nesting' su ogni endpoint di API Gateway. Vale identico per `blob.core.windows.net` su Azure."
+    },
+    {
+      "id": "parola-italiana-vicina-a-un-marchio",
+      "url": "https://intensa.it/",
+      "maxRank": 1,
+      "note": "`intensa` è un aggettivo italiano comune e dista una sola inserzione da `intesa`. È il caso che ha escluso l'inserzione libera dal confronto per errore di battitura: ammessa solo quando raddoppia una lettera vicina, come in `paypall`."
+    },
+    {
+      "id": "parola-italiana-a-una-sostituzione",
+      "url": "https://intera.it/",
+      "maxRank": 1,
+      "note": "`intera` dista una sostituzione da `intesa`. È il caso che ha escluso del tutto la sostituzione: non aggiungeva un solo attacco alla copertura e triplicava i falsi positivi."
+    },
+    {
+      "id": "dominio-lungo-che-contiene-un-marchio-storpiato",
+      "url": "https://www.goggle-analytics-tutorial.it/",
+      "maxRank": 1,
+      "note": "`goggle` dista una sostituzione da `google`. Stessa ragione del caso sopra: senza l'esclusione della sostituzione, un sito che parla di analytics diventerebbe un avviso."
     }
   ]
 }

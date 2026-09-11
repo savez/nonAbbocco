@@ -186,6 +186,38 @@
         "sensitive-fields"
       ],
       "note": "I nomi dei campi in un kit vero sono `otp_code` e `cvv2`, non `otp` e `cvv`: il trattino basso è un carattere di parola e la cifra non apre un confine, quindi `\\\\botp\\\\b` non li trovava. Chiedere OTP e CVV insieme alla password è la firma di chi vuole completare una transazione, non di chi vuole farti accedere."
+    },
+    {
+      "id": "typosquatting-lettera-raddoppiata",
+      "url": "https://paypall.com/signin",
+      "hasPassword": true,
+      "minRank": 3,
+      "wasFalseNegative": 1,
+      "mustFire": [
+        "brand-typosquatting"
+      ],
+      "note": "Il marchio scritto male: una `l` in più. Prendeva rango 1 perché il motore cercava il marchio per token esatto o per skeleton dei confondibili, e `paypall` non è né l'uno né l'altro. È la forma più banale di typosquatting e anche la più diffusa."
+    },
+    {
+      "id": "typosquatting-lettera-mancante",
+      "url": "https://amazn-ordini.it/accedi",
+      "hasPassword": true,
+      "minRank": 3,
+      "wasFalseNegative": 1,
+      "mustFire": [
+        "brand-typosquatting"
+      ],
+      "note": "Una `o` in meno in `amazon`. La cancellazione non ha bisogno di guardie: togliere una lettera a un marchio non produce parole di senso compiuto."
+    },
+    {
+      "id": "typosquatting-lettere-invertite",
+      "url": "https://googel-account.xyz/verifica",
+      "hasPassword": true,
+      "minRank": 3,
+      "mustFire": [
+        "brand-typosquatting"
+      ],
+      "note": "`googel` per `google`: due lettere invertite, l'errore che fanno le dita quando vanno più veloci della testa."
     }
   ]
 }

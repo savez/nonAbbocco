@@ -23,6 +23,7 @@ lascia il browser.
 |---|---|
 | Marchio nel sottodominio di un dominio altrui | `paypal.com.verifica-account.xyz` |
 | Typosquatting sul dominio registrabile | `paypal-secure.xyz`, `inps-rimborso.top` |
+| Marchio scritto male di proposito | `paypall.com`, `amazn-ordini.it`, `googel-account.xyz` |
 | Omografi con alfabeti diversi | `аррӏе.com` scritto in cirillico |
 | Alfabeti mescolati dentro la stessa parola | `pаypal.com` con la `а` cirillica |
 | Testo civetta prima della chiocciola | `https://paypal.com@evil-collector.xyz` |
