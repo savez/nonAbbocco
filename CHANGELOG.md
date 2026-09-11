@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/savez/nonAbbocco/compare/v1.0.0...v1.1.0) (2026-09-11)
+
+
+### Novità
+
+* popup con il ranking della pagina, e il motore canonico che gira davvero ([#2](https://github.com/savez/nonAbbocco/issues/2)) ([2334a42](https://github.com/savez/nonAbbocco/commit/2334a422f3ac1ee44a3d121c1737c3415bfa0043))
+
 ## [1.0.0](https://github.com/savez/nonAbbocco/compare/v1.0.0...v1.0.0) (2026-09-10)
 
 
