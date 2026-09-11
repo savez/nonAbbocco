@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/savez/nonAbbocco/compare/v1.1.0...v1.1.1) (2026-09-11)
+
+
+### Correzioni
+
+* hosting condiviso, e l'allowlist che finalmente esiste ([#4](https://github.com/savez/nonAbbocco/issues/4)) ([12b63a8](https://github.com/savez/nonAbbocco/commit/12b63a82bf16a7a9a41c03f6a7fd48e15a1445c1))
+
 ## [1.1.0](https://github.com/savez/nonAbbocco/compare/v1.0.0...v1.1.0) (2026-09-11)
 
 
