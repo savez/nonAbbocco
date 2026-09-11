@@ -17,8 +17,20 @@ Per caricare l'estensione:
 
 - **Chrome / Edge / Brave** — `chrome://extensions`, attiva *Modalità sviluppatore*, poi
   *Carica estensione non pacchettizzata* e scegli la cartella del repo.
-- **Firefox** — `about:debugging#/runtime/this-firefox`, *Carica componente aggiuntivo
+- **Firefox 121+** — `about:debugging#/runtime/this-firefox`, *Carica componente aggiuntivo
   temporaneo*, seleziona `manifest.json`. Il caricamento temporaneo si azzera alla chiusura.
+
+Il `manifest.json` del repo dichiara il background **per entrambi i browser insieme**, così la
+stessa cartella si carica in tutti e due: `service_worker` + `type: "module"` per Chrome, `page`
+per Firefox, che i service worker non li supporta e non supporta ancora `type: "module"` su
+`background.scripts` ([bug 1811443](https://bugzilla.mozilla.org/show_bug.cgi?id=1811443)).
+
+Da qui il pavimento di Firefox 121 in sviluppo: prima di quella versione la sola presenza di
+`service_worker` impediva alla background page di partire. **Gli utenti non sono toccati** —
+`npm run package` consegna a ciascuno store solo le chiavi del suo browser, e il manifest per AMO
+resta compatibile con Firefox 115, il pavimento reale (è la versione in cui è arrivato
+`storage.session`, da cui il popup legge il verdetto). Se devi provare su un Firefox più vecchio,
+lancia `npm run package:firefox` e carica `dist/.staging/firefox/manifest.json`.
 
 ## Il contributo più utile: casi per il corpus
 
@@ -48,9 +60,25 @@ seconda copia.** Se un contesto ti sembra costretto a duplicare la logica, apri 
 problema di architettura, non da risolvere copiando.
 
 In particolare i content script **non possono** essere moduli ES su nessuno dei due browser.
-La conseguenza è deliberata: le regole stanno nel service worker, e il content script raccoglie
-segnali DOM e nient'altro. Gira su `<all_urls>`, cioè anche dentro la pagina dell'attaccante, e
-per questo non deve contenere né segreti né decisioni.
+La conseguenza è deliberata: le regole stanno in `background.js`, che il motore lo importa, e
+`content.js` raccoglie segnali DOM e disegna quello che gli viene risposto. Gira su `<all_urls>`,
+cioè anche dentro la pagina dell'attaccante, e per questo non deve contenere né segreti né
+decisioni.
+
+Il giro completo è uno solo:
+
+```
+content.js  ──sendMessage({ dom })──►  background.js  ──►  src/scoring.js
+                                             │
+                    risposta: verdetto ◄─────┤
+                                             └──►  storage.session  ──►  popup.js
+```
+
+Il popup **non ricalcola**: legge dalla sessione lo stesso verdetto. `test/wiring.test.js`
+verifica che il cablaggio resti così — in particolare che in `content.js` non ricompaiano somme
+di punti, soglie di rank o liste di marchi. Quella suite esiste perché per un po' `src/scoring.js`
+è stato corretto, testato *e scollegato*: la suite era verde e l'estensione installata usava
+un'altra logica.
 
 ## Aggiungere una regola di rilevamento
 

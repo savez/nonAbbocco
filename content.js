@@ -1,139 +1,194 @@
 /**
- * NonAbbocco Defender - Content Script (content.js)
- * Analisi euristica combinata di URL e DOM, calcolo Ranking 1-5,
- * gestione della soglia personalizzata via chrome.storage e layer protetto in Closed Shadow DOM.
+ * NonAbbocco Defender — Content Script (content.js)
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * ATTENZIONE — STATO DI TRANSIZIONE
+ * Raccoglie segnali dal DOM, li manda al background, disegna quello che il
+ * background risponde. Non decide nulla.
  *
- * La definizione CANONICA dello scoring è ora `src/scoring.js`, coperta da
- * test. Le euristiche qui sotto sono una copia storica che resta in vita solo
- * finché il service worker non prende il suo posto: i content script non
- * possono essere moduli ES su nessuno dei due browser, quindi questo file non
- * può importare il motore.
+ * ─── PERCHÉ NON DECIDE NULLA ─────────────────────────────────────────────────
  *
- * Non modificare le euristiche qui: modificale in `src/scoring.js`. Questo
- * file verrà svuotato della logica decisionale e ridotto alla sola raccolta di
- * segnali DOM, perché gira su <all_urls> — cioè anche dentro la pagina
- * dell'attaccante — e non deve contenere né segreti né decisioni.
+ * Questo file gira su <all_urls>, cioè anche dentro la pagina dell'attaccante.
+ * Ogni euristica che vive qui è un'euristica che l'avversario può leggere e
+ * calibrare, e ogni segreto che passa di qui è un segreto bruciato.
  *
- * Difetti noti e ancora presenti in questo file, documentati in
- * docs/RANKING.md e coperti dal corpus in test/corpus/:
+ * Fino alla versione precedente conteneva una copia storica del motore — somma
+ * di punti, soglie fisse, tredici marchi confrontati per sottostringa — mentre
+ * la definizione canonica stava già in `src/scoring.js`, testata e coperta dal
+ * corpus, ma non caricata da nessun percorso runtime. Le due divergevano:
+ * `www.posteitaliane.it` prendeva 3/5 qui e 1/5 dal motore vero, perché
+ * `hostname.includes('poste')` non sa distinguere Poste dal phishing che la
+ * imita. Quella copia non c'è più. Il motore gira in `background.js`, che è un
+ * modulo ES e può importarlo.
+ *
+ * Quello che resta qui è deliberatamente stupido: leggere il DOM, spedire,
+ * disegnare.
+ *
+ * ─── DIFETTI NOTI ANCORA PRESENTI ────────────────────────────────────────────
+ *
+ * Documentati in docs/RANKING.md:
  *   - l'overlay e la pillola sono nodi del DOM della pagina, quindi la pagina
  *     ostile li rimuove con una riga di JS;
- *   - il bypass vive in sessionStorage, che la pagina può scrivere da sé;
- *   - il parametro `reasons` di injectDiscreetPill non è mai usato.
- * ─────────────────────────────────────────────────────────────────────────────
+ *   - il bypass vive in sessionStorage, che la pagina può scrivere da sé.
+ *
+ * Nessuno dei due è risolvibile da dentro un content script; la strada è
+ * `declarativeNetRequest` con una pagina di interstiziale dell'estensione.
  */
 (function () {
   'use strict';
 
-  // Evita reiniezioni multiple nella medesima pagina
+  // Solo il documento principale. Senza questo, ogni iframe pubblicitario di
+  // ogni pagina raccoglierebbe il proprio DOM e manderebbe il proprio
+  // messaggio. Il background filtra comunque per `frameId`, ma non far partire
+  // il lavoro è meglio che scartarlo dopo.
+  if (window.top !== window) return;
+
   if (window.__NONABBOCCO_INITIALIZED__) return;
   window.__NONABBOCCO_INITIALIZED__ = true;
 
-  const currentUrl = window.location.href;
-  const hostname = window.location.hostname.toLowerCase();
-  const protocol = window.location.protocol;
-  const bypassStorageKey = `nonabbocco_bypass_${hostname}`;
+  const api = globalThis.browser ?? globalThis.chrome;
 
-  // Se l'utente ha scelto di ignorare il rischio per questa sessione, non bloccare
-  if (sessionStorage.getItem(bypassStorageKey) === 'true') {
-    console.info('[NonAbbocco] Sessione autorizzata tramite bypass utente.');
-    return;
+  /**
+   * Il testo della pagina serve solo a cercare i modi di dire dell'urgenza.
+   * Troncarlo: è contenuto di una pagina potenzialmente ostile e non c'è
+   * ragione di spedirne megabyte attraverso il confine dei processi.
+   */
+  const MAX_VISIBLE_TEXT = 20000;
+
+  /** Oltre questo numero i nomi dei campi non aggiungono informazione. */
+  const MAX_FIELD_NAMES = 200;
+
+  const bypassStorageKey = `nonabbocco_bypass_${window.location.hostname.toLowerCase()}`;
+
+  run();
+
+  async function run() {
+    let response;
+    try {
+      response = await api.runtime.sendMessage({
+        type: 'analyze',
+        // Ripiego: il background preferisce `sender.url`, che la pagina non
+        // può falsificare.
+        url: window.location.href,
+        dom: collectDomSignals()
+      });
+    } catch {
+      // Il background non risponde: succede quando l'estensione è stata
+      // ricaricata mentre la scheda era aperta. Non c'è niente da disegnare.
+      return;
+    }
+
+    if (!response || !response.verdict) return;
+    render(response);
   }
 
-  // Lettura della soglia configurata (Default = 5: blocco immediato a schermo solo al livello 5)
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-    chrome.storage.sync.get({ blockThreshold: 5 }, (items) => {
-      analyzePage(items.blockThreshold || 5);
-    });
-  } else {
-    analyzePage(5);
+  // ─── RACCOLTA ──────────────────────────────────────────────────────────────
+
+  /**
+   * Produce esattamente la forma che `normalizeDomSignals` si aspetta in
+   * `src/scoring.js`. Se quella cambia, cambia anche questa: è l'unico
+   * contratto fra i due file.
+   */
+  function collectDomSignals() {
+    return {
+      passwordFieldCount: document.querySelectorAll('input[type="password"]').length,
+      fieldNames: collectFieldNames(),
+      credentialForms: collectCredentialForms(),
+      title: document.title || '',
+      ogSiteName: metaContent('og:site_name'),
+      visibleText: (document.body?.innerText || '').slice(0, MAX_VISIBLE_TEXT)
+    };
   }
 
-  function analyzePage(blockThreshold) {
-    let score = 0;
-    const anomalies = [];
-
-    const KNOWN_BRANDS = [
-      'paypal', 'poste', 'posteitaliane', 'intesasanpaolo', 'unicredit',
-      'bnl', 'ingdirect', 'apple', 'google', 'amazon', 'microsoft', 'netflix', 'facebook'
-    ];
-    const HIGH_RISK_TLDS = ['.xyz', '.top', '.work', '.buzz', '.icu', '.tk', '.ml', '.ga', '.cf', '.gq', '.shop'];
-
-    // 1. ANALISI EURISTICA DELL'URL
-    const isIpHost = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
-    if (isIpHost) {
-      score += 45;
-      anomalies.push("L'indirizzo web è composto da un IP grezzo anziché da un dominio nominale.");
-    }
-
-    if (hostname.includes('xn--')) {
-      score += 40;
-      anomalies.push("Presenza di caratteri punycode (possibile attacco omografo fraudolento).");
-    }
-
-    for (const brand of KNOWN_BRANDS) {
-      if (hostname.includes(brand)) {
-        const isLegit = hostname === `${brand}.com` || hostname === `${brand}.it` ||
-                        hostname.endsWith(`.${brand}.com`) || hostname.endsWith(`.${brand}.it`);
-        if (!isLegit) {
-          score += 55;
-          anomalies.push(`Imitazione o typosquatting del marchio autentico "${brand.toUpperCase()}".`);
-          break;
-        }
+  function collectFieldNames() {
+    const names = [];
+    for (const el of document.querySelectorAll('input, select, textarea')) {
+      for (const value of [el.name, el.id, el.getAttribute('autocomplete')]) {
+        if (value) names.push(String(value));
+        if (names.length >= MAX_FIELD_NAMES) return names;
       }
     }
+    return names;
+  }
 
-    const matchedTld = HIGH_RISK_TLDS.find(tld => hostname.endsWith(tld));
-    if (matchedTld && (hostname.includes('login') || hostname.includes('account') || hostname.includes('verify'))) {
-      score += 30;
-      anomalies.push(`Dominio con estensione economica a rischio (${matchedTld}) abbinata a parole d'accesso.`);
+  function collectCredentialForms() {
+    const forms = [];
+    for (const form of document.querySelectorAll('form')) {
+      if (!form.querySelector('input[type="password"]')) continue;
+      // L'attributo `action` grezzo può essere relativo, o assente: va risolto
+      // contro l'URL della pagina, altrimenti un `action="/login"` verrebbe
+      // scartato e un `action=""` letto come host vuoto.
+      const actionHost = resolveHost(form.getAttribute('action'));
+      if (actionHost) forms.push({ actionHost });
     }
+    return forms;
+  }
 
-    // 2. ANALISI DEL DOM DELLA PAGINA
-    const passwordInputs = document.querySelectorAll('input[type="password"]');
-    const forms = document.querySelectorAll('form');
-
-    if (passwordInputs.length > 0 && protocol === 'http:') {
-      score += 50;
-      anomalies.push("Invio credenziali di sicurezza su protocollo HTTP non crittografato.");
+  function resolveHost(action) {
+    try {
+      return new URL(action || '', window.location.href).hostname;
+    } catch {
+      return null;
     }
+  }
 
-    forms.forEach(form => {
-      if (form.querySelector('input[type="password"]')) {
-        const action = form.getAttribute('action') || '';
-        try {
-          if (action.startsWith('http://') || action.startsWith('https://')) {
-            const targetHost = new URL(action).hostname.toLowerCase();
-            if (targetHost !== hostname && !targetHost.endsWith('.' + hostname)) {
-              score += 65;
-              anomalies.push(`La password viene inviata a un server esterno non appartenente al dominio (${targetHost}).`);
-            }
-          }
-        } catch (e) {}
-      }
-    });
+  function metaContent(property) {
+    const el = document.querySelector(`meta[property="${property}"]`);
+    return el?.getAttribute('content') || '';
+  }
 
-    // 3. CALCOLO DEL RANKING DI RISCHIO SU SCALA 1-5
-    let rank = 1;
-    if (score >= 80) rank = 5;       // Minaccia Critica Phishing
-    else if (score >= 60) rank = 4;  // Rischio Elevato
-    else if (score >= 40) rank = 3;  // Sospetto Moderato
-    else if (score >= 20) rank = 2;  // Attenzione Minima
-    else rank = 1;                   // Ritenuto Sicuro
+  // ─── RENDERING ─────────────────────────────────────────────────────────────
 
-    // 4. DECISIONE: BLOCCO TOTALE vs PILLOLA VISIBILE
-    if (rank >= blockThreshold) {
-      injectFullBlockOverlay(rank, anomalies, bypassStorageKey);
-    } else if (rank >= 2) {
-      injectDiscreetPill(rank, anomalies);
+  /**
+   * @param {{verdict: object, blockThreshold: number, presentation: object}} response
+   */
+  function render({ verdict, blockThreshold, presentation }) {
+    // Le soppressioni spiegano perché NON è scattato nulla: non sono anomalie
+    // e non vanno elencate come tali.
+    const reasons = (verdict.fired || [])
+      .filter((f) => f.kind !== 'suppress')
+      .map((f) => f.message);
+
+    if (presentation.rank >= blockThreshold) {
+      // Il bypass non impedisce più l'analisi, solo il blocco. Prima usciva
+      // prima di analizzare, e il popup restava muto proprio sulle pagine che
+      // l'utente aveva scelto di scavalcare — cioè quelle su cui avrebbe avuto
+      // più senso poter riguardare il verdetto.
+      if (isBypassed()) return;
+      injectFullBlockOverlay(presentation, reasons);
+    } else if (presentation.rank >= 2) {
+      injectDiscreetPill(presentation, reasons);
     }
+  }
+
+  function isBypassed() {
+    try {
+      return sessionStorage.getItem(bypassStorageKey) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Costruisce la lista delle anomalie con `textContent`.
+   *
+   * I messaggi del motore interpolano valori che vengono dalla pagina — il
+   * titolo, l'host di destinazione di un form — quindi comporli con
+   * `innerHTML`, come faceva la versione precedente, dava alla pagina ostile
+   * un modo per scrivere markup dentro l'avviso che la accusa.
+   */
+  function reasonList(reasons) {
+    const ul = document.createElement('ul');
+    for (const reason of reasons) {
+      const li = document.createElement('li');
+      li.textContent = reason;
+      ul.appendChild(li);
+    }
+    return ul;
   }
 
   // SCHERMATA DI BLOCCO TRAMITE CLOSED SHADOW DOM
-  function injectFullBlockOverlay(rank, reasons, storageKey) {
+  function injectFullBlockOverlay(presentation, reasons) {
+    const { rank, label, subtitle } = presentation;
+
     const root = document.createElement('div');
     root.id = 'nonabbocco-shield-blocker';
     root.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:auto;';
@@ -156,12 +211,12 @@
       </style>
       <div class="backdrop">
         <div class="box">
-          <div class="badge">🎣 NONABBOCCO: RANKING DI RISCHIO ${rank}/5</div>
+          <div class="badge" id="badge"></div>
           <h1>Attenzione: Non Abboccare all'Esca!</h1>
-          <p>Il motore di NonAbbocco ha rilevato caratteristiche evidenti di truffa e furto credenziali. La pagina è stata interrotta per salvaguardare le tue password.</p>
+          <p id="subtitle"></p>
           <div class="reasons">
             <strong>Anomalie individuate:</strong>
-            <ul>${reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+            <div id="reasons"></div>
           </div>
           <div class="actions">
             <button class="btn-safe" id="btn-safe">Torna al sicuro</button>
@@ -171,6 +226,10 @@
       </div>
     `;
 
+    shadow.getElementById('badge').textContent = `🎣 NONABBOCCO: RANKING ${rank}/5 — ${label}`;
+    shadow.getElementById('subtitle').textContent = subtitle;
+    shadow.getElementById('reasons').appendChild(reasonList(reasons));
+
     document.documentElement.appendChild(root);
 
     shadow.getElementById('btn-safe').addEventListener('click', () => {
@@ -178,36 +237,44 @@
     });
 
     shadow.getElementById('btn-bypass').addEventListener('click', () => {
-      sessionStorage.setItem(storageKey, 'true');
+      try {
+        sessionStorage.setItem(bypassStorageKey, 'true');
+      } catch { /* pagina senza sessionStorage: il bypass vale per questa vista */ }
       root.remove();
     });
   }
 
-  // PILLOLA DISCRETA PER LIVELLI INTERMEDI SOTTO SOGLIA (1-4)
-  function injectDiscreetPill(rank, reasons) {
+  // PILLOLA DISCRETA PER I LIVELLI SOTTO LA SOGLIA DI BLOCCO
+  function injectDiscreetPill(presentation, reasons) {
+    const { rank, label, palette } = presentation;
+
     const root = document.createElement('div');
     root.id = 'nonabbocco-pill-indicator';
     root.style.cssText = 'position:fixed;top:16px;right:16px;z-index:999999;pointer-events:auto;';
     const shadow = root.attachShadow({ mode: 'closed' });
 
-    const colorConfig = {
-      2: { bg: '#064e3b', border: '#10b981', text: '#a7f3d0', label: 'Rischio Basso (2/5)' },
-      3: { bg: '#78350f', border: '#f59e0b', text: '#fde68a', label: 'Sospetto Moderato (3/5)' },
-      4: { bg: '#831843', border: '#f43f5e', text: '#fecdd3', label: 'Rischio Elevato (4/5)' }
-    };
-    const c = colorConfig[rank] || colorConfig[3];
-
     shadow.innerHTML = `
       <style>
-        .pill { background:${c.bg}; border:1px solid ${c.border}; color:${c.text}; padding:8px 14px; border-radius:999px; font-family:sans-serif; font-size:12px; font-weight:700; display:flex; align-items:center; gap:8px; box-shadow:0 8px 25px rgba(0,0,0,0.5); backdrop-filter:blur(8px); }
-        .close-btn { background:transparent; border:none; color:${c.text}; cursor:pointer; font-weight:bold; font-size:14px; margin-left:4px; opacity:0.8; }
+        .pill { background:${palette.bg}; border:1px solid ${palette.border}; color:${palette.text}; padding:8px 14px; border-radius:14px; font-family:-apple-system,BlinkMacSystemFont,sans-serif; font-size:12px; font-weight:700; display:flex; align-items:flex-start; gap:8px; box-shadow:0 8px 25px rgba(0,0,0,0.5); backdrop-filter:blur(8px); max-width:320px; }
+        .body { display:flex; flex-direction:column; gap:4px; }
+        ul { margin:0; padding-left:16px; font-weight:400; opacity:0.9; }
+        li { margin-bottom:2px; }
+        .close-btn { background:transparent; border:none; color:${palette.text}; cursor:pointer; font-weight:bold; font-size:14px; margin-left:4px; opacity:0.8; line-height:1; }
         .close-btn:hover { opacity:1; }
       </style>
       <div class="pill">
-        <span>🎣 NonAbbocco: ${c.label}</span>
+        <div class="body">
+          <span id="headline"></span>
+          <div id="reasons"></div>
+        </div>
         <button class="close-btn" id="close-pill" title="Chiudi notifica">✕</button>
       </div>
     `;
+
+    shadow.getElementById('headline').textContent = `🎣 NonAbbocco: ${label} (${rank}/5)`;
+    // Il parametro `reasons` esisteva già nella firma e veniva ignorato: la
+    // pillola diceva che qualcosa non andava senza mai dire cosa.
+    shadow.getElementById('reasons').appendChild(reasonList(reasons));
 
     document.documentElement.appendChild(root);
     shadow.getElementById('close-pill').addEventListener('click', () => root.remove());

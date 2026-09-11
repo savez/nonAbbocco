@@ -123,37 +123,54 @@ l'unica: non esiste una seconda copia da tenere allineata.
 ## 6. Il percorso completo di un URL
 
 ```
-                 URL grezzo
+        pagina caricata (document_end)
                      │
                      ▼
         ┌────────────────────────┐
-        │ decodifica punycode    │   xn--80ak6aa92e → аррӏе
-        │ dominio registrabile   │   via Public Suffix List
-        │ tokenizzazione         │   paypal-secure → [paypal, secure]
-        │ skeleton confondibili  │   аррӏе → apple
+        │ content.js             │   campi password, nomi dei campi,
+        │ raccoglie segnali DOM  │   action dei form, titolo, og:site_name,
+        └────────────┬───────────┘   testo visibile (troncato)
+                     │  runtime.sendMessage
+                     ▼
+        ┌────────────────────────┐
+        │ background.js          │   è l'unico contesto che può importare
+        │ importa src/scoring.js │   moduli ES, quindi l'unico che decide
         └────────────┬───────────┘
                      ▼
         ┌────────────────────────┐
-        │ regole di fase `url`   │   il service worker le valuta PRIMA
-        └────────────┬───────────┘   che la pagina esista
-                     ▼
-              verdetto preliminare ──► interstiziale, se già sufficiente
-                     │
-                     ▼
-        ┌────────────────────────┐
-        │ segnali DOM            │   campi password, form, titolo,
-        │ dal content script     │   linguaggio d'urgenza
+        │ buildUrlSignals        │   decodifica punycode
+        │                        │   dominio registrabile via PSL
+        │                        │   tokenizzazione, skeleton confondibili
+        │ normalizeDomSignals    │   campi sensibili, host dei form,
+        │                        │   linguaggio d'urgenza
         └────────────┬───────────┘
                      ▼
-              mergeVerdicts  ──► MONOTONO: il rank sale, mai scende
+              evaluate({ phase: 'full' })
                      │
-                     ▼
-              verdetto finale ──► badge nella barra, o interstiziale
+        ┌────────────┴───────────────────────────┐
+        ▼                                        ▼
+  risposta a content.js                  storage.session
+  → interstiziale o pillola              → letto dal popup della barra
 ```
 
-La monotonia della fusione non è un dettaglio implementativo. Se il verdetto potesse scendere dopo
-il caricamento, basterebbe a un attaccante iniettare nel DOM qualcosa che abbassi il punteggio per
-far ritirare un interstiziale già mostrato.
+**Il verdetto è uno solo.** Il popup non ricalcola: legge dalla sessione lo stesso oggetto che ha
+prodotto la pillola. È una scelta strutturale, non un'ottimizzazione — finché esistevano due
+percorsi di calcolo ne esistevano due che divergevano, ed è successo due volte: prima fra
+`content.js` e `simulator.html`, poi fra la copia legacy in `content.js` e questo motore, che
+davano 3/5 e 1/5 alla stessa `www.posteitaliane.it`.
+
+### Cosa non è ancora collegato
+
+`mergeVerdicts` e la valutazione in due fasi esistono in `src/scoring.js`, sono testate, e non
+girano ancora: il verdetto preliminare sul solo indirizzo richiederebbe di intercettare la
+navigazione prima che la pagina esista, cioè `webNavigation` o `declarativeNetRequest`, e quindi
+permessi che l'estensione oggi non chiede. Il costo è che l'interstiziale appare a pagina già
+caricata invece che al suo posto.
+
+La fusione è **monotona** — il rank sale, mai scende — e non è un dettaglio implementativo: se il
+verdetto potesse scendere dopo il caricamento, basterebbe a un attaccante iniettare nel DOM
+qualcosa che abbassi il punteggio per far ritirare un interstiziale già mostrato. La proprietà va
+conservata quando la seconda fase verrà collegata.
 
 ---
 
