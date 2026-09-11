@@ -294,7 +294,7 @@ export const BRANDS = [
     labels: ['amazon', 'aws'],
     legit: [
       'amazon.com', 'amazon.it', 'amazon.de', 'amazon.co.uk', 'amazon.fr',
-      'amazon.es', 'amazon.nl', 'amazonaws.com', 'primevideo.com', 'amzn.to'
+      'amazon.es', 'amazon.nl', 'amazonaws.com', 'awsapps.com', 'primevideo.com', 'amzn.to'
     ]
   },
   {

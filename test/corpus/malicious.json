@@ -7,7 +7,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "mustFire": ["brand-in-registrable-domain"],
+      "mustFire": [
+        "brand-in-registrable-domain"
+      ],
       "wasFalseNegative": 3,
       "note": "Il caso da manuale, e il falso negativo più imbarazzante del vecchio motore: 55 punti, quindi nessun blocco. La regola sul TLD a rischio non scattava perché cercava 'login' nell'hostname, mentre qui sta nel path."
     },
@@ -17,7 +19,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "mustFire": ["brand-in-registrable-domain"],
+      "mustFire": [
+        "brand-in-registrable-domain"
+      ],
       "note": "Identico al precedente per sostanza. Nel vecchio modello prendeva 85 punti anziché 55 solo perché 'login' stava nell'hostname invece che nel path: è la dimostrazione che le soglie fisse su una somma erano incoerenti."
     },
     {
@@ -26,7 +30,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "mustFire": ["brand-in-subdomain"],
+      "mustFire": [
+        "brand-in-subdomain"
+      ],
       "note": "Il dominio registrabile è verifica-account.xyz; 'paypal.com' è solo testo nel sottodominio."
     },
     {
@@ -35,7 +41,10 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 3,
-      "mustFire": ["ephemeral-hosting", "credential-surface"],
+      "mustFire": [
+        "ephemeral-hosting",
+        "credential-surface"
+      ],
       "wasFalseNegative": 1,
       "note": "Il falso negativo più grave: nessuna delle sei regole storiche scattava, e il verdetto era 'Ritenuto Sicuro'. È la forma dominante del phishing attuale — dominio pulito, TLS valido, esfiltrazione via fetch — e il caso per cui il rank 1 non deve mai comunicare sicurezza."
     },
@@ -45,7 +54,9 @@
       "hasPassword": false,
       "formAction": null,
       "minRank": 3,
-      "mustFire": ["homograph-brand-collision"],
+      "mustFire": [
+        "homograph-brand-collision"
+      ],
       "note": "аррӏе.com scritto interamente in cirillico: il PoC omografo classico. Il vecchio motore arrivava allo stesso rank ma PER IL MOTIVO SBAGLIATO: dava +40 a qualunque 'xn--', quindi trattava in modo identico questo attacco e bücher.de. La correzione non si vede nel rank di questo caso ma nella coppia con 'idn-legittimo-tedesco', che è scesa da 3 a 1 mentre questo è rimasto a 3."
     },
     {
@@ -54,7 +65,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "mustFire": ["userinfo-in-authority"],
+      "mustFire": [
+        "userinfo-in-authority"
+      ],
       "wasFalseNegative": 1,
       "note": "L'host reale è evil-collector.xyz, ma la barra degli indirizzi comincia con 'paypal.com'. Il vecchio motore non aveva alcuna regola sull'userinfo: nessun segnale, rank 1."
     },
@@ -64,7 +77,10 @@
       "hasPassword": true,
       "formAction": "http://185.220.101.5/banca/api/credentials",
       "minRank": 4,
-      "mustFire": ["raw-ip-host", "password-over-http"],
+      "mustFire": [
+        "raw-ip-host",
+        "password-over-http"
+      ],
       "note": "IP pubblico, quindi 'private-network' non lo sopprime. Scenario già presente nel simulatore."
     },
     {
@@ -73,7 +89,10 @@
       "hasPassword": true,
       "formAction": "http://data-collection-phish.xyz/post.php",
       "minRank": 4,
-      "mustFire": ["brand-in-registrable-domain", "cross-origin-credential-form"],
+      "mustFire": [
+        "brand-in-registrable-domain",
+        "cross-origin-credential-form"
+      ],
       "note": "Marchio imitato più esfiltrazione verso un dominio terzo. Scenario già presente nel simulatore."
     },
     {
@@ -82,7 +101,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 3,
-      "mustFire": ["password-over-http"],
+      "mustFire": [
+        "password-over-http"
+      ],
       "note": "Nessun marchio imitato, ma password in chiaro su HTTP pubblico: trasporto forte più superficie credenziali."
     },
     {
@@ -91,7 +112,9 @@
       "hasPassword": false,
       "formAction": null,
       "minRank": 3,
-      "mustFire": ["brand-in-registrable-domain"],
+      "mustFire": [
+        "brand-in-registrable-domain"
+      ],
       "note": "Lo schema di phishing più diffuso in Italia via SMS. Il vecchio motore non conosceva nessun corriere: BRT, GLS, DHL e le altre non erano in lista."
     },
     {
@@ -100,7 +123,9 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "mustFire": ["brand-in-registrable-domain"],
+      "mustFire": [
+        "brand-in-registrable-domain"
+      ],
       "note": "Phishing su ente pubblico, anch'esso assente dalla lista storica."
     },
     {
@@ -109,8 +134,42 @@
       "hasPassword": true,
       "formAction": null,
       "minRank": 4,
-      "mustFire": ["mixed-script-label"],
+      "mustFire": [
+        "mixed-script-label"
+      ],
       "note": "pаypal.com con una 'а' cirillica in mezzo a caratteri latini: mescola due alfabeti dentro la stessa parola, cosa che nessuna lingua richiede."
+    },
+    {
+      "id": "kit-su-bucket-s3-con-marchio",
+      "url": "https://paypal.s3.amazonaws.com/login",
+      "hasPassword": true,
+      "minRank": 4,
+      "wasFalseNegative": 1,
+      "mustFire": [
+        "brand-in-subdomain"
+      ],
+      "note": "Kit di phishing ospitato su S3 con il marchio nel sottodominio: classico e diffuso. Prendeva rango 1 perché amazonaws.com è nella lista dei domini legittimi di Amazon e 'trusted-brand-domain' azzerava tutta l'identità. Ma su una piattaforma condivisa il dominio è di Amazon e il sottodominio è di chiunque: che il dominio appartenga a un marchio non dice nulla su chi controlla la pagina."
+    },
+    {
+      "id": "kit-su-portale-aws-con-marchio",
+      "url": "https://paypal.awsapps.com/start",
+      "hasPassword": true,
+      "minRank": 4,
+      "mustFire": [
+        "brand-in-subdomain"
+      ],
+      "note": "Lo stesso schema su awsapps.com. È il caso che la correzione ingenua del falso positivo — mettere awsapps.com fra i domini legittimi e basta — avrebbe portato da 4 a 1."
+    },
+    {
+      "id": "kit-su-google-storage-con-marchio",
+      "url": "https://poste.storage.googleapis.com/accedi",
+      "hasPassword": true,
+      "minRank": 4,
+      "wasFalseNegative": 1,
+      "mustFire": [
+        "brand-in-subdomain"
+      ],
+      "note": "Stessa classe su Google Cloud Storage: googleapis.com è nella lista di Google, quindi l'identità veniva azzerata esattamente come su S3."
     }
   ]
 }

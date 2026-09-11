@@ -203,6 +203,14 @@ export function buildUrlSignals(rawUrl, context = {}) {
     // un segnale diverso, e più forte, di "il marchio nel dominio".
     domainTokens: tokenize(domainName),
     subdomainTokens: reg.subdomainLabels.flatMap((l) => tokenize(l)),
+    // Le label che l'inquilino ha davvero scelto. Su hosting condiviso la
+    // piattaforma porta con sé le proprie:
+    // `abcdef.execute-api.eu-west-1.amazonaws.com` ha tre label sopra il
+    // dominio registrabile, ma l'unica scelta da chi ci sta sopra è `abcdef`.
+    // Contare anche le altre faceva scattare `deep-subdomain-nesting` su ogni
+    // endpoint di API Gateway. Fuori dall'hosting condiviso coincide con
+    // `subdomainTokens`.
+    tenantSubdomainTokens: tenantLabels(hostname, reg, suffixInfo).flatMap((l) => tokenize(l)),
     urlTokens: tokenize(`${hostnameUnicode} ${u.pathname} ${u.search}`),
     skeletonTokens: tokenize(skeleton(toUnicode(domainName || hostname))),
     mixedScriptLabels,
@@ -425,6 +433,21 @@ export function evaluateUrlAndPage(rawUrl, page = {}) {
 
   const merged = { ...urlSignals, ...normalizeDomSignals(domRaw, urlSignals) };
   return evaluate(merged, { phase: 'full' });
+}
+
+/**
+ * Le label di sottodominio che appartengono a chi usa la piattaforma, non alla
+ * piattaforma stessa.
+ *
+ * @param {string} hostname
+ * @param {{subdomainLabels: string[]}} reg  Esito del lookup ICANN.
+ * @param {{privateSuffix: string|null}} suffixInfo
+ * @returns {string[]}
+ */
+function tenantLabels(hostname, reg, suffixInfo) {
+  if (!isEphemeralHosting(hostname) || !suffixInfo.privateSuffix) return reg.subdomainLabels;
+  const head = hostname.slice(0, Math.max(0, hostname.length - suffixInfo.privateSuffix.length));
+  return head.split('.').filter(Boolean);
 }
 
 function safeHost(action, base) {

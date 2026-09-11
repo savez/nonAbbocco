@@ -94,6 +94,31 @@ grave: `192.168.1.1` è una rete privata, non raggiungibile da un attaccante rem
 privata l'assenza di HTTPS è normale. La regola `private-network` azzera identità e trasporto, e
 nessuna somma può più portare il router di casa a rank 5.
 
+**E per questo un'esenzione sbagliata è il difetto più costoso del motore.** Non produce un avviso
+in meno: spegne una categoria intera prima ancora che venga valutata. `trusted-brand-domain`
+esentava qualunque dominio registrabile appartenente a un marchio noto, e fra quei domini c'è
+`amazonaws.com`. Il risultato era che `paypal.s3.amazonaws.com/login` — un kit di phishing su
+bucket, forma classica — prendeva **rank 1**: l'esenzione azzerava `brand-in-subdomain` prima che
+potesse scattare.
+
+L'errore era confondere due fatti diversi.
+
+| Affermazione | Su `amazon.it` | Su `s3.amazonaws.com` |
+|---|---|---|
+| «Il dominio registrabile è di Amazon» | vera | vera |
+| «Amazon controlla ciò che c'è su questa pagina» | vera | **falsa** |
+
+Su una piattaforma che assegna un sottodominio per cliente, il marchio possiede la piattaforma e
+non l'inquilino, e non ha titolo per garantire per lui. Le regole sui marchi lo tengono presente
+attraverso `isEphemeralHosting`, che la Public Suffix List sa già dire: dove il suffisso privato è
+più profondo di quello ICANN, l'appartenenza del dominio a un marchio non vale come esenzione.
+
+Lo stesso ragionamento vale al contrario. `ephemeral-hosting` non scatta quando la piattaforma è
+di un marchio noto — `miaazienda.awsapps.com` è il portale SSO di un'azienda con un contratto AWS,
+non un sottodominio gratuito preso in cinque minuti — e `deep-subdomain-nesting` conta solo le
+label che l'inquilino ha davvero scelto, perché `execute-api.eu-west-1` lo impone AWS e non si può
+addebitare a chi ci sta sopra.
+
 ---
 
 ## 5. La tabella che produce il rank
