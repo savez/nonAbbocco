@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<!--
+  Porta d'ingresso del background per Firefox, che non supporta i service
+  worker e non supporta ancora `"type": "module"` su `background.scripts`
+  (bug 1811443). Qui la modularità sta nel tag, ed è il workaround che MDN
+  documenta. Chrome non carica mai questo file: `tools/package.mjs` toglie
+  `background.page` dal manifest destinato al Chrome Web Store.
+-->
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>NonAbbocco — background</title>
+  <script type="module" src="background.js"></script>
+</head>
+<body></body>
+</html>

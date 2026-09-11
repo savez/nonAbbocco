@@ -57,11 +57,25 @@ const skipTests = args.includes('--skip-tests');
 const SHIPPED = [
   'manifest.json',
   'content.js',
+  'background.js',
+  'background.html',
+  'popup.html',
+  'popup.js',
   'options.html',
   'options.js',
   'src',
   'icons'
 ];
+
+/**
+ * File che riguardano un browser solo. `background.html` è la porta d'ingresso
+ * del background per Firefox: il manifest di Chrome non la nomina nemmeno, e
+ * spedirla lì significherebbe dare in revisione un file che l'estensione non
+ * carica mai.
+ */
+const ONLY_FOR = {
+  'background.html': 'firefox'
+};
 
 /** Non entrano mai, nemmeno se dentro una cartella spedita. */
 const NEVER_SHIP = [
@@ -126,6 +140,7 @@ const referenced = [
   ...(manifest.content_scripts || []).flatMap((cs) => [...(cs.js || []), ...(cs.css || [])]),
   ...(manifest.background?.scripts || []),
   manifest.background?.service_worker,
+  manifest.background?.page,
   manifest.options_ui?.page,
   manifest.action?.default_popup,
   ...Object.values(manifest.icons || {}),
@@ -201,6 +216,19 @@ if (problems.length) {
 /**
  * Il manifest specifico per un browser: rimuove le chiavi che l'altro
  * userebbe e che la validazione dello store segnalerebbe come estranee.
+ *
+ * Il `background` è il punto in cui i due browser divergono di più:
+ *
+ *   - Chrome MV3 conosce solo `service_worker`, e vuole `type: "module"`
+ *     accanto per caricarlo come modulo ES.
+ *   - Firefox non supporta affatto i service worker e non supporta ancora
+ *     `type: "module"` su `background.scripts` (bug 1811443). Usa quindi
+ *     `page`, dove la modularità sta nel tag `<script type="module">` dentro
+ *     l'HTML: `type` nel manifest non gli serve e sarebbe una chiave estranea.
+ *
+ * Il manifest non pacchettizzato le dichiara tutte e tre, così durante lo
+ * sviluppo la stessa cartella si carica in entrambi i browser. Agli store
+ * arriva solo la metà che li riguarda.
  */
 function manifestFor(target) {
   const m = structuredClone(manifest);
@@ -209,12 +237,14 @@ function manifestFor(target) {
     delete m.browser_specific_settings;
     if (m.background) {
       delete m.background.scripts;
+      delete m.background.page;
       if (!m.background.service_worker) delete m.background;
     }
   } else {
     if (m.background) {
       delete m.background.service_worker;
-      if (!m.background.scripts) delete m.background;
+      delete m.background.type;
+      if (!m.background.scripts && !m.background.page) delete m.background;
     }
   }
   return m;
@@ -231,6 +261,7 @@ for (const target of only) {
 
   for (const item of SHIPPED) {
     if (item === 'manifest.json') continue;
+    if (ONLY_FOR[item] && ONLY_FOR[item] !== target) continue;
     await cp(join(root, item), join(dir, item), {
       recursive: true,
       filter: (src) => {

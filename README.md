@@ -70,6 +70,22 @@ Il processo completo, con i casi svolti, è in **[docs/RANKING.md](docs/RANKING.
 > schermata di NonAbbocco dirà mai che un sito è sicuro, perché sostituire la tua prudenza con una
 > falsa certezza farebbe più danni che tacere.
 
+## Cosa vedi
+
+**Sulla pagina.** Sopra la soglia che hai scelto nelle opzioni, un interstiziale a schermo intero
+interrompe la navigazione e ti dice cosa è stato osservato. Sotto la soglia, una pillola discreta
+in alto a destra con il rank e le anomalie.
+
+**Nella barra degli strumenti.** Cliccando l'icona si apre il popup con il verdetto della pagina
+corrente: il rank con la sua etichetta, l'indirizzo spezzato sul dominio registrabile — l'unico
+pezzo che dice davvero di chi è il sito — le quattro categorie con il loro livello di evidenza, e
+l'elenco dei segnali che sono scattati. Quando non è scattato nulla perché il sito è riconosciuto,
+il popup dice anche quello.
+
+Il popup **non ricalcola**: legge il verdetto che il background ha già prodotto per quella scheda.
+È per questo che il numero nel popup e quello sulla pagina non possono divergere — è lo stesso
+numero. Non servono permessi oltre a `storage`.
+
 ## Provalo senza installare nulla
 
 La pagina di progetto include un **simulatore interattivo**: costruisci una pagina fittizia e
@@ -106,6 +122,11 @@ L'estensione non è ancora pubblicata sugli store.
 3. Seleziona `manifest.json`.
 
 Il caricamento temporaneo si azzera alla chiusura del browser.
+
+Serve **Firefox 121 o successivo** per caricare il repository così com'è: il `manifest.json` di
+sviluppo dichiara anche il `service_worker` di Chrome, e prima della 121 la sua presenza impediva
+alla background page di partire. Gli utenti non sono toccati — il manifest che finisce
+nell'archivio per AMO quella chiave non ce l'ha.
 
 </details>
 

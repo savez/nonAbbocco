@@ -27,7 +27,13 @@ Considero vulnerabilità, in ordine di gravità:
   un'autorizzazione a procedere senza che l'utente l'abbia data dall'interstiziale.
 - **Escalation dal content script**: il content script gira su `<all_urls>`, quindi anche
   dentro la pagina dell'attaccante. Qualunque modo per cui la pagina lo usi per raggiungere il
-  service worker, leggere stato privilegiato o influenzare un verdetto.
+  background, leggere stato privilegiato o influenzare un verdetto.
+
+  Il canale fra i due esiste ed è volutamente stretto. Il content script manda segnali DOM e
+  nient'altro; il background prende l'indirizzo da `sender.url`, che lo scrive il browser, e non
+  dal messaggio, che viene da dentro la pagina; scarta i messaggi che non arrivano dal documento
+  principale di una scheda reale; e archivia il verdetto in `storage.session`, che i content
+  script non possono leggere. Un percorso che aggiri una qualunque di queste è una vulnerabilità.
 - **Esfiltrazione di dati**: qualunque percorso per cui URL visitati, contenuti di pagina o la
   API key di Safe Browsing dell'utente lascino il browser in modo non documentato nel README.
 - **Falso negativo strutturale**: non un singolo sito non riconosciuto, ma una *classe* di

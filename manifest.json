@@ -17,6 +17,11 @@
       "run_at": "document_end"
     }
   ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module",
+    "page": "background.html"
+  },
   "options_ui": {
     "page": "options.html",
     "open_in_tab": false
@@ -33,7 +38,8 @@
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png"
-    }
+    },
+    "default_popup": "popup.html"
   },
   "browser_specific_settings": {
     "gecko": {
