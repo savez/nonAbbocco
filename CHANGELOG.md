@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.2](https://github.com/savez/nonAbbocco/compare/v1.1.1...v1.1.2) (2026-09-11)
+
+
+### Correzioni
+
+* il bypass non vive più dentro la pagina ([#7](https://github.com/savez/nonAbbocco/issues/7)) ([1f60428](https://github.com/savez/nonAbbocco/commit/1f60428cd3045664a94cc019fa0d47148451561b))
+
+
+### Documentazione
+
+* il percorso che porta al rank, disegnato dove si guarda ([#6](https://github.com/savez/nonAbbocco/issues/6)) ([3ad3914](https://github.com/savez/nonAbbocco/commit/3ad39143bff48b80c6f0bf43f485616d93da5e60))
+
 ## [1.1.1](https://github.com/savez/nonAbbocco/compare/v1.1.0...v1.1.1) (2026-09-11)
 
 
