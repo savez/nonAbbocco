@@ -5,9 +5,14 @@
  * scritta pensando a chi legge invece che a cosa è vero. Una regola può
  * essere corretta e la sua spiegazione inutile.
  *
- * `test/docs-sync.test.js` verifica che ogni regola abbia una voce qui e una
- * scheda in docs/DETECTION.md: aggiungere una regola senza spiegarla fa
- * fallire la build.
+ * `test/rules.test.js` verifica che ogni regola abbia una voce qui, che nessuna
+ * voce resti orfana, e che ogni messaggio si renda senza lanciare con i
+ * parametri veri prodotti dalla sua regola: aggiungere una regola senza
+ * spiegarla fa fallire la build.
+ *
+ * Queste voci sono anche la documentazione pubblica del motore — il catalogo
+ * sulla pagina di progetto le legge da qui — quindi vanno scritte per chi non
+ * ha mai aperto il codice.
  *
  * Regola di stile: dire all'utente COSA è stato osservato, non quanto è grave.
  * La gravità è il rank; qui si spiega il fatto.
@@ -32,6 +37,8 @@ export const RULE_MESSAGES = {
     `Il nome "${p.name}" compare nel sottodominio, ma il dominio reale è un altro: è una tecnica per far leggere un marchio dove non c'è.`,
   'brand-in-registrable-domain': (p) =>
     `Il dominio richiama il marchio "${p.name}" senza appartenergli.`,
+  'brand-typosquatting': (p) =>
+    `Il nome del sito somiglia a "${p.name}" ma non è scritto uguale: è un errore di battitura registrato apposta, per chi lo legge di fretta.`,
   'homograph-brand-collision': (p) =>
     `L'indirizzo usa caratteri di un altro alfabeto per somigliare a "${p.name}". Scritto per esteso è: ${p.shown}`,
   'mixed-script-label': (p) =>

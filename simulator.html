@@ -850,7 +850,7 @@ code {
           <div>
             <div class="flow__title">Le regole scattano in ordine</div>
             <p>Prima le <b>esenzioni</b>, che azzerano categorie intere: nessun punteggio sopravvive a un'esenzione, ed è così che il router di casa non diventa un allarme. Poi il <b>veto</b>. Poi le regole <b>forti</b> (2 livelli) e <b>deboli</b> (1 livello, e da sole non superano il livello 1).</p>
-            <div class="flow__chips"><span class="flow__chip">22 regole</span><span class="flow__chip">esenzioni → veto → forti → deboli</span></div>
+            <div class="flow__chips"><span class="flow__chip">23 regole</span><span class="flow__chip">esenzioni → veto → forti → deboli</span></div>
 
           </div>
         </li>
@@ -1030,7 +1030,7 @@ code {
 <!-- ─── Catalogo delle regole ────────────────────────────────────────────── -->
 <section class="band" id="regole">
   <div class="wrap">
-    <span class="eyebrow">22 regole · 50 marchi · 151 domini legittimi</span>
+    <span class="eyebrow">23 regole · 50 marchi · 151 domini legittimi</span>
     <h2>Cosa guarda, esattamente</h2>
     <p class="lede">
       Ogni regola alimenta una delle quattro categorie. Questo elenco è generato da
@@ -1050,6 +1050,10 @@ code {
         <div class="rule">
           <div class="rule__id">brand-in-registrable-domain<span class="rule__kind">forte</span></div>
           <div class="rule__what">Il dominio richiama il marchio &quot;PayPal&quot; senza appartenergli.</div>
+        </div>
+        <div class="rule">
+          <div class="rule__id">brand-typosquatting<span class="rule__kind">debole</span></div>
+          <div class="rule__what">Il nome del sito somiglia a &quot;PayPal&quot; ma non è scritto uguale: è un errore di battitura registrato apposta, per chi lo legge di fretta.</div>
         </div>
         <div class="rule">
           <div class="rule__id">homograph-brand-collision<span class="rule__kind">forte</span></div>

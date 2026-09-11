@@ -2,8 +2,11 @@
  * Le regole di rilevamento, espresse come DATI.
  *
  * Non sono `if` annidati dentro il motore per tre ragioni concrete:
- *   - i test possono enumerarle e verificare che ognuna sia documentata;
- *   - `docs/DETECTION.md` resta allineato perché la suite lo controlla;
+ *   - i test possono enumerarle e verificare che ognuna sia spiegata: nessuna
+ *     regola entra nel motore senza un messaggio per l'utente, e nessun
+ *     messaggio resta orfano di una regola (`test/rules.test.js`);
+ *   - il catalogo pubblicato sulla pagina di progetto è GENERATO da questo
+ *     elenco, quindi non può descrivere un motore diverso da quello che gira;
  *   - l'interstiziale può spiegare all'utente cosa è scattato e perché.
  *
  * ─── I QUATTRO TIPI ──────────────────────────────────────────────────────────
@@ -32,7 +35,8 @@
  * congiunzione con un problema di identità o di trasporto.
  */
 
-import { LABEL_INDEX, LEGIT_DOMAINS } from './brands.js';
+import { BRANDS, LABEL_INDEX, LEGIT_DOMAINS } from './brands.js';
+import { isTypoOf } from './typo.js';
 
 const ACCESS_WORDS = [
   'login', 'signin', 'account', 'verify', 'verifica', 'accedi', 'accesso',
@@ -69,6 +73,46 @@ function foreignBrandFromTokens(tokens, registrableDomain, onSharedHosting = fal
   for (const token of tokens || []) {
     const brand = LABEL_INDEX.get(token);
     if (brand && !brand.legit.includes(registrableDomain)) return brand;
+  }
+  return null;
+}
+
+/**
+ * Le label dei marchi abbastanza lunghe da reggere un confronto per errore di
+ * battitura.
+ *
+ * Sotto le sei lettere il confronto diventa rumore: a distanza 1 da `poste`
+ * ci sono `posta`, `porte`, `coste`, `soste`; da `tim` c'è mezzo vocabolario.
+ * Il taglio lascia fuori 22 label su 77 — fra cui `aws`, `bnl`, `tim`,
+ * `enel`, `apple`, `poste` — e tiene dentro le 55 su cui il segnale è pulito,
+ * `paypal` e `amazon` compresi.
+ */
+const TYPO_LABELS = [...new Set(BRANDS.flatMap((b) => b.labels))]
+  .filter((label) => label.length >= 6);
+
+/**
+ * Il marchio che un token storpia, se ne storpia uno.
+ *
+ * @param {string[]} tokens
+ * @param {string|null} registrableDomain
+ * @param {boolean} [onSharedHosting]
+ * @returns {import('./brands.js').Brand|null}
+ */
+function typosquattedBrandFromTokens(tokens, registrableDomain, onSharedHosting = false) {
+  if (!registrableDomain) return null;
+  if (!onSharedHosting && LEGIT_DOMAINS.has(registrableDomain)) return null;
+
+  for (const token of tokens || []) {
+    // Il token che È una label di marchio lo prendono già
+    // `brand-in-registrable-domain` e `brand-in-subdomain`: qui produrrebbe
+    // solo un doppione nell'elenco mostrato all'utente.
+    if (LABEL_INDEX.has(token)) return null;
+
+    for (const label of TYPO_LABELS) {
+      if (!isTypoOf(label, token)) continue;
+      const brand = LABEL_INDEX.get(label);
+      if (brand && !brand.legit.includes(registrableDomain)) return brand;
+    }
   }
   return null;
 }
@@ -154,6 +198,27 @@ export const RULES = [
     // "timbrature.it".
     test: (s) => {
       const brand = foreignBrandFromTokens(s.domainTokens, s.registrableDomain, s.isEphemeralHosting);
+      return brand ? { brand: brand.id, name: brand.name } : null;
+    }
+  },
+  {
+    id: 'brand-typosquatting',
+    kind: 'weak',
+    phase: 'url',
+    category: 'identity',
+    // Il marchio scritto male: `paypall.com`, `amazn-ordini.it`,
+    // `googel-account.xyz`. Il motore prendeva il marchio scritto per intero e
+    // quello scritto con caratteri confondibili, ma non il caso più banale di
+    // tutti.
+    //
+    // Nasce DEBOLE di proposito. Da sola porta a rango 2 — «controlla
+    // l'indirizzo» — e a 3 su una pagina che chiede credenziali. Promuoverla a
+    // forte, dove per gravità meriterebbe di stare, si decide quando il corpus
+    // sarà abbastanza largo da misurare la promozione: è la prudenza che è
+    // mancata a `trusted-brand-domain`, ed è costata un falso negativo su ogni
+    // kit ospitato su un bucket.
+    test: (s) => {
+      const brand = typosquattedBrandFromTokens(s.domainTokens, s.registrableDomain, s.isEphemeralHosting);
       return brand ? { brand: brand.id, name: brand.name } : null;
     }
   },

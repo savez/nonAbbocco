@@ -1,5 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 import { RULES, RULE_IDS } from '../src/rules.js';
 import { RULE_MESSAGES } from '../src/messages.it.js';
@@ -105,4 +110,19 @@ test('i messaggi si rendono senza lanciare, con i parametri veri', () => {
   const nonCoperte = RULE_IDS.filter((id) => !visti.has(id));
   assert.deepEqual(nonCoperte, [],
     `regole mai fatte scattare da questo test: ${nonCoperte.join(', ')}. Aggiungi un caso.`);
+});
+
+test('ogni regola compare nel catalogo pubblicato', () => {
+  // La promessa che il codice faceva da tempo — «la suite controlla che ogni
+  // regola sia documentata» — puntava a un `test/docs-sync.test.js` e a un
+  // `docs/DETECTION.md` che non sono mai esistiti. La documentazione per regola
+  // esiste davvero, ma sta nel catalogo della pagina di progetto, che
+  // `tools/build-page.mjs` genera da RULES: non può descrivere un motore
+  // diverso da quello che gira. Quello che POTEVA restare indietro è il file
+  // generato, se qualcuno aggiunge una regola e non lancia `npm run page`.
+  const page = readFileSync(join(here, '..', 'simulator.html'), 'utf8');
+  for (const rule of RULES) {
+    assert.ok(page.includes(rule.id),
+      `la regola "${rule.id}" non compare in simulator.html: rigenera con \`npm run page\``);
+  }
 });

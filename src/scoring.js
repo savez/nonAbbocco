@@ -80,6 +80,31 @@ const SENSITIVE_FIELD_PATTERNS = [
   [/\b(seed|mnemonic|recovery[-_]?phrase|private[-_]?key)\b/i, 'chiave o seed phrase']
 ];
 
+/**
+ * Separa i nomi dei campi nelle parole che li compongono.
+ *
+ * Serve perché `\b` non fa da confine dove serve: in espressione regolare il
+ * trattino basso È un carattere di parola, e una cifra attaccata a una lettera
+ * non apre un confine. Quindi `\botp\b` non trovava `otp_code`, e `\bcvv\b`
+ * non trovava `cvv2` — cioè proprio le forme in cui quei campi si chiamano nei
+ * moduli veri, mentre `otp` isolato scattava.
+ *
+ * La correzione sta qui e non nei pattern: normalizzare l'ingresso una volta
+ * sola è meno fragile che rincorrere ogni combinazione di separatori dentro
+ * sette espressioni regolari.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function splitFieldName(text) {
+  return String(text || '')
+    .replace(/[_\-]+/g, ' ')           // otp_code   → otp code
+    .replace(/([a-z])([A-Z])/g, '$1 $2') // otpCode    → otp Code
+    .replace(/([a-zA-Z])(\d)/g, '$1 $2') // cvv2       → cvv 2
+    .replace(/(\d)([a-zA-Z])/g, '$1 $2') // 2fa        → 2 fa
+    .toLowerCase();
+}
+
 const URGENCY_PATTERNS = [
   /entro\s+\d+\s+(ore|giorni|minuti)/i,
   /\b(urgente|immediat|sospes|bloccat|scadut|ultimo avviso|verifica obbligatoria)/i,
@@ -228,7 +253,13 @@ export function buildUrlSignals(rawUrl, context = {}) {
  * @param {object} urlSignals
  */
 export function normalizeDomSignals(raw = {}, urlSignals = {}) {
-  const names = Array.isArray(raw.fieldNames) ? raw.fieldNames.join(' ') : '';
+  // Cercati su DUE forme: quella scritta e quella spezzata nelle sue parole.
+  // I pattern multi-parola — `card[-_]?number`, `codice[-_]?fiscale` — vogliono
+  // il separatore attaccato e trovano la prima; `\botp\b` e `\bcvv\b` vogliono
+  // un confine vero e trovano la seconda. Provarle entrambe costa nulla ed
+  // evita di riscrivere i pattern per reggere ogni combinazione.
+  const written = Array.isArray(raw.fieldNames) ? raw.fieldNames.join(' ') : '';
+  const names = `${written} ${splitFieldName(written)}`;
   const sensitiveFieldNames = SENSITIVE_FIELD_PATTERNS
     .filter(([re]) => re.test(names))
     .map(([, label]) => label);
