@@ -17,14 +17,54 @@ const load = (name) => JSON.parse(readFileSync(join(here, 'corpus', name), 'utf8
 const benign = load('benign.json');
 const malicious = load('malicious.json');
 
-const evalCase = (c) =>
-  evaluateUrlAndPage(c.url, { hasPassword: c.hasPassword, formAction: c.formAction });
+/**
+ * Esegue un caso del corpus.
+ *
+ * Passa TUTTI i campi di pagina che `evaluateUrlAndPage` sa leggere, non solo
+ * due. Prima ne passava due: un caso che dichiarava `fieldNames` o
+ * `visibleText` veniva valutato senza, e il corpus — che è il contratto —
+ * affermava una cosa mentre ne verificava un'altra. Un caso scritto bene
+ * poteva passare per la ragione sbagliata, o fallire senza colpa.
+ */
+const evalCase = (c) => evaluateUrlAndPage(c.url, {
+  hasPassword: c.hasPassword,
+  formAction: c.formAction,
+  fieldNames: c.fieldNames,
+  title: c.title,
+  ogSiteName: c.ogSiteName,
+  visibleText: c.visibleText,
+  userAllowlisted: c.userAllowlisted,
+  safeBrowsingThreat: c.safeBrowsingThreat
+});
 
 const detail = (v) =>
   `rank ${v.rank} · livelli ${CATEGORIES.map((k) => `${k[0]}${v.categories[k]}`).join(' ')} · ` +
   `regole [${v.fired.map((f) => f.id).join(', ') || 'nessuna'}]`;
 
 // ─── Il corpus è il contratto ────────────────────────────────────────────────
+
+test('nessun campo del corpus viene ignorato in silenzio', () => {
+  // Il difetto che questo test impedisce di ripetere: `evalCase` passava al
+  // motore due soli campi di pagina, quindi un caso che dichiarava
+  // `fieldNames` veniva valutato senza. Il corpus affermava una cosa e ne
+  // verificava un'altra, e nulla lo segnalava.
+  const noti = new Set([
+    'id', 'url', 'note',                                  // anagrafica
+    'maxRank', 'minRank', 'mustFire',                     // asserzioni
+    'wasFalsePositive', 'wasFalseNegative',               // regressioni storiche
+    'hasPassword', 'formAction', 'fieldNames',            // segnali di pagina
+    'title', 'ogSiteName', 'visibleText',
+    'userAllowlisted', 'safeBrowsingThreat'               // contesto
+  ]);
+
+  for (const c of [...benign.cases, ...malicious.cases]) {
+    for (const key of Object.keys(c)) {
+      assert.ok(noti.has(key),
+        `il caso "${c.id}" dichiara "${key}", che nessuno legge: ` +
+        'aggiungilo a `evalCase` oppure toglilo dal corpus');
+    }
+  }
+});
 
 test('nessun falso positivo sui siti legittimi', async (t) => {
   for (const c of benign.cases) {

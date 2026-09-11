@@ -170,6 +170,22 @@
         "brand-in-subdomain"
       ],
       "note": "Stessa classe su Google Cloud Storage: googleapis.com è nella lista di Google, quindi l'identità veniva azzerata esattamente come su S3."
+    },
+    {
+      "id": "otp-con-nome-composto",
+      "url": "https://intesa-sicurezza-accesso.top/conferma",
+      "hasPassword": true,
+      "fieldNames": [
+        "user_id",
+        "password",
+        "otp_code",
+        "cvv2"
+      ],
+      "minRank": 4,
+      "mustFire": [
+        "sensitive-fields"
+      ],
+      "note": "I nomi dei campi in un kit vero sono `otp_code` e `cvv2`, non `otp` e `cvv`: il trattino basso è un carattere di parola e la cifra non apre un confine, quindi `\\\\botp\\\\b` non li trovava. Chiedere OTP e CVV insieme alla password è la firma di chi vuole completare una transazione, non di chi vuole farti accedere."
     }
   ]
 }
