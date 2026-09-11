@@ -657,3 +657,31 @@ code {
   font-size: .87rem;
 }
 .warnbox strong { display: block; margin-bottom: .3rem; }
+
+/* ─── Il percorso che porta al rank ───────────────────────────────────────────
+ *
+ * Una scala di passi, non un diagramma a scatole e frecce. Il contenuto è
+ * testo — «content.js legge il DOM e basta» — e il testo dentro un SVG non va
+ * a capo: su un telefono diventerebbe illeggibile o microscopico. Qui i
+ * connettori sono un filetto e un pallino numerato, e le righe si
+ * ricompongono da sole.
+ *
+ * Vale la regola della pagina: i passi sono neutri. L'unico colore è sui
+ * cinque ranghi dell'ultimo passo, perché è l'unico punto in cui il motore ha
+ * espresso un giudizio.
+ */
+.flow-intro { margin-top: 3rem; }
+.flow-heading { font-size: clamp(1.15rem, 2.4vw, 1.5rem); letter-spacing: -.02em; margin: .35rem 0 0; }
+.flow { list-style: none; margin: 2.5rem 0 0; padding: 0; }
+.flow__step { display: grid; grid-template-columns: 2.1rem 1fr; gap: 1.1rem; padding-bottom: 1.6rem; position: relative; }
+.flow__step::before { content: ''; position: absolute; left: 1.05rem; top: 2.1rem; bottom: 0; width: 1px; background: var(--rule); }
+.flow__step:last-child { padding-bottom: 0; }
+.flow__step:last-child::before { display: none; }
+.flow__mark { width: 2.1rem; height: 2.1rem; border-radius: 50%; border: 1px solid var(--rule); background: var(--paper); display: grid; place-items: center; font-family: var(--mono); font-size: .78rem; font-weight: 600; color: var(--muted); }
+.flow__title { font-size: .95rem; font-weight: 700; letter-spacing: -.01em; margin: .42rem 0 .3rem; }
+.flow__step p { font-size: .85rem; color: var(--muted); margin: 0; line-height: 1.55; max-width: 58ch; }
+.flow__step p + p { margin-top: .45rem; }
+.flow__chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+.flow__chip { font-family: var(--mono); font-size: .69rem; border: 1px solid var(--rule); border-radius: 999px; padding: .16rem .55rem; color: var(--muted); background: var(--paper); white-space: nowrap; }
+.flow__ranks { display: flex; gap: .35rem; margin-top: .65rem; }
+.flow__rank { font-family: var(--mono); font-weight: 600; font-size: .82rem; border: 1.5px solid currentColor; border-radius: .35rem; width: 1.65rem; height: 1.65rem; display: grid; place-items: center; }

@@ -107,6 +107,60 @@ const scale = [1, 2, 3, 4, 5].map((r) => `        <div class="scale__item">
           <p class="scale__desc">${esc(RANK_SUBTITLES[r])}</p>
         </div>`).join('\n');
 
+/* ─── Il percorso che porta al rank ──────────────────────────────────────────
+ *
+ * I passi sono dati, non markup incollato: il giorno in cui il verdetto
+ * preliminare sull'indirizzo verrà collegato (oggi `mergeVerdicts` esiste,
+ * è testata e non gira) qui si aggiunge una voce e basta.
+ *
+ * ATTENZIONE ALLA DOPPIA RAPPRESENTAZIONE: lo stesso percorso è disegnato in
+ * Mermaid nel README. Se cambia il flusso, vanno aggiornati entrambi — non
+ * c'è nulla che lo verifichi al posto tuo.
+ */
+const FLOW = [
+  {
+    title: 'La pagina finisce di caricarsi',
+    body: ['<code>content.js</code> legge il DOM e si ferma lì: quanti campi password ci sono, come si chiamano i campi, verso quale host punta il form, il titolo, il testo visibile. <b>Non decide nulla.</b> Gira su ogni pagina che apri, cioè anche dentro quella dell\'attaccante, e lì non si tengono né segreti né giudizi.'],
+    chips: ['campi password', 'nomi dei campi', 'destinazione dei form', 'titolo', 'testo visibile']
+  },
+  {
+    title: 'I segnali arrivano a background.js',
+    body: ['<code>background.js</code> è l\'unico contesto che può importare il motore come modulo, quindi è l\'unico posto dove le euristiche esistono. Dall\'indirizzo ricava quello che il DOM non dice.'],
+    chips: ['punycode → Unicode', 'dominio registrabile (PSL)', 'tokenizzazione', 'skeleton dei confondibili']
+  },
+  {
+    title: 'Le regole scattano in ordine',
+    body: ['Prima le <b>esenzioni</b>, che azzerano categorie intere: nessun punteggio sopravvive a un\'esenzione, ed è così che il router di casa non diventa un allarme. Poi il <b>veto</b>. Poi le regole <b>forti</b> (2 livelli) e <b>deboli</b> (1 livello, e da sole non superano il livello 1).'],
+    chips: [`${RULES.length} regole`, 'esenzioni → veto → forti → deboli']
+  },
+  {
+    title: 'Ogni regola alimenta una categoria',
+    body: ['Non un totale unico: quattro accumulatori separati, ciascuno saturato a 3. Sommare fra categorie incommensurabili è l\'errore che il primo motore faceva.'],
+    chips: CATEGORY_ORDER.slice()
+  },
+  {
+    title: 'La tupla dei livelli entra in una tabella',
+    body: ['Il rank non è una soglia su una somma: è una <b>lettura</b> della quaterna dei livelli. Due pagine con lo stesso totale ma categorie diverse ricevono risposte diverse — che è tutto il punto.']
+  },
+  {
+    title: 'Esce il rank, e con lui cosa vedi',
+    body: ['Sopra la soglia che hai scelto, l\'interstiziale. Sotto, la pillola. In entrambi i casi il verdetto finisce in <code>storage.session</code>, ed è <b>quello</b> che il popup della barra ti rilegge: un solo numero, non due calcoli che si somigliano.'],
+    ranks: true
+  }
+];
+
+const flow = `      <ol class="flow">
+${FLOW.map((step, i) => `        <li class="flow__step">
+          <div class="flow__mark">${i + 1}</div>
+          <div>
+            <div class="flow__title">${esc(step.title)}</div>
+${(step.body || []).map((p) => `            <p>${p}</p>`).join('\n')}
+${step.chips ? `            <div class="flow__chips">${step.chips.map((c) => `<span class="flow__chip">${esc(c)}</span>`).join('')}</div>` : ''}
+${step.ranks ? `            <div class="flow__ranks">${[1, 2, 3, 4, 5].map((r) => `<span class="flow__rank r${r}" title="${esc(RANK_LABELS[r])}">${r}</span>`).join('')}</div>` : ''}
+          </div>
+        </li>`).join('\n')}
+      </ol>`;
+
 // ─── Icone inline: nessuna richiesta di rete, nessun font di icone ───────────
 
 const ICON_GITHUB = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>';
@@ -238,6 +292,12 @@ ${CATEGORY_ORDER.map((c) => `      <div class="question">
         su <code>192.168.1.1</code>.
       </p>
     </div>
+
+    <div class="flow-intro">
+      <span class="eyebrow">Il percorso</span>
+      <h3 class="flow-heading">Dai segnali al numero, in sei passi</h3>
+    </div>
+${flow}
 
     <div class="scale">
 ${scale}

@@ -675,6 +675,34 @@ code {
 }
 .warnbox strong { display: block; margin-bottom: .3rem; }
 
+/* ─── Il percorso che porta al rank ───────────────────────────────────────────
+ *
+ * Una scala di passi, non un diagramma a scatole e frecce. Il contenuto è
+ * testo — «content.js legge il DOM e basta» — e il testo dentro un SVG non va
+ * a capo: su un telefono diventerebbe illeggibile o microscopico. Qui i
+ * connettori sono un filetto e un pallino numerato, e le righe si
+ * ricompongono da sole.
+ *
+ * Vale la regola della pagina: i passi sono neutri. L'unico colore è sui
+ * cinque ranghi dell'ultimo passo, perché è l'unico punto in cui il motore ha
+ * espresso un giudizio.
+ */
+.flow-intro { margin-top: 3rem; }
+.flow-heading { font-size: clamp(1.15rem, 2.4vw, 1.5rem); letter-spacing: -.02em; margin: .35rem 0 0; }
+.flow { list-style: none; margin: 2.5rem 0 0; padding: 0; }
+.flow__step { display: grid; grid-template-columns: 2.1rem 1fr; gap: 1.1rem; padding-bottom: 1.6rem; position: relative; }
+.flow__step::before { content: ''; position: absolute; left: 1.05rem; top: 2.1rem; bottom: 0; width: 1px; background: var(--rule); }
+.flow__step:last-child { padding-bottom: 0; }
+.flow__step:last-child::before { display: none; }
+.flow__mark { width: 2.1rem; height: 2.1rem; border-radius: 50%; border: 1px solid var(--rule); background: var(--paper); display: grid; place-items: center; font-family: var(--mono); font-size: .78rem; font-weight: 600; color: var(--muted); }
+.flow__title { font-size: .95rem; font-weight: 700; letter-spacing: -.01em; margin: .42rem 0 .3rem; }
+.flow__step p { font-size: .85rem; color: var(--muted); margin: 0; line-height: 1.55; max-width: 58ch; }
+.flow__step p + p { margin-top: .45rem; }
+.flow__chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+.flow__chip { font-family: var(--mono); font-size: .69rem; border: 1px solid var(--rule); border-radius: 999px; padding: .16rem .55rem; color: var(--muted); background: var(--paper); white-space: nowrap; }
+.flow__ranks { display: flex; gap: .35rem; margin-top: .65rem; }
+.flow__rank { font-family: var(--mono); font-weight: 600; font-size: .82rem; border: 1.5px solid currentColor; border-radius: .35rem; width: 1.65rem; height: 1.65rem; display: grid; place-items: center; }
+
 </style>
 </head>
 <body>
@@ -793,6 +821,67 @@ code {
         su <code>192.168.1.1</code>.
       </p>
     </div>
+
+    <div class="flow-intro">
+      <span class="eyebrow">Il percorso</span>
+      <h3 class="flow-heading">Dai segnali al numero, in sei passi</h3>
+    </div>
+      <ol class="flow">
+        <li class="flow__step">
+          <div class="flow__mark">1</div>
+          <div>
+            <div class="flow__title">La pagina finisce di caricarsi</div>
+            <p><code>content.js</code> legge il DOM e si ferma lì: quanti campi password ci sono, come si chiamano i campi, verso quale host punta il form, il titolo, il testo visibile. <b>Non decide nulla.</b> Gira su ogni pagina che apri, cioè anche dentro quella dell'attaccante, e lì non si tengono né segreti né giudizi.</p>
+            <div class="flow__chips"><span class="flow__chip">campi password</span><span class="flow__chip">nomi dei campi</span><span class="flow__chip">destinazione dei form</span><span class="flow__chip">titolo</span><span class="flow__chip">testo visibile</span></div>
+
+          </div>
+        </li>
+        <li class="flow__step">
+          <div class="flow__mark">2</div>
+          <div>
+            <div class="flow__title">I segnali arrivano a background.js</div>
+            <p><code>background.js</code> è l'unico contesto che può importare il motore come modulo, quindi è l'unico posto dove le euristiche esistono. Dall'indirizzo ricava quello che il DOM non dice.</p>
+            <div class="flow__chips"><span class="flow__chip">punycode → Unicode</span><span class="flow__chip">dominio registrabile (PSL)</span><span class="flow__chip">tokenizzazione</span><span class="flow__chip">skeleton dei confondibili</span></div>
+
+          </div>
+        </li>
+        <li class="flow__step">
+          <div class="flow__mark">3</div>
+          <div>
+            <div class="flow__title">Le regole scattano in ordine</div>
+            <p>Prima le <b>esenzioni</b>, che azzerano categorie intere: nessun punteggio sopravvive a un'esenzione, ed è così che il router di casa non diventa un allarme. Poi il <b>veto</b>. Poi le regole <b>forti</b> (2 livelli) e <b>deboli</b> (1 livello, e da sole non superano il livello 1).</p>
+            <div class="flow__chips"><span class="flow__chip">22 regole</span><span class="flow__chip">esenzioni → veto → forti → deboli</span></div>
+
+          </div>
+        </li>
+        <li class="flow__step">
+          <div class="flow__mark">4</div>
+          <div>
+            <div class="flow__title">Ogni regola alimenta una categoria</div>
+            <p>Non un totale unico: quattro accumulatori separati, ciascuno saturato a 3. Sommare fra categorie incommensurabili è l'errore che il primo motore faceva.</p>
+            <div class="flow__chips"><span class="flow__chip">identity</span><span class="flow__chip">credentials</span><span class="flow__chip">transport</span><span class="flow__chip">reputation</span></div>
+
+          </div>
+        </li>
+        <li class="flow__step">
+          <div class="flow__mark">5</div>
+          <div>
+            <div class="flow__title">La tupla dei livelli entra in una tabella</div>
+            <p>Il rank non è una soglia su una somma: è una <b>lettura</b> della quaterna dei livelli. Due pagine con lo stesso totale ma categorie diverse ricevono risposte diverse — che è tutto il punto.</p>
+
+
+          </div>
+        </li>
+        <li class="flow__step">
+          <div class="flow__mark">6</div>
+          <div>
+            <div class="flow__title">Esce il rank, e con lui cosa vedi</div>
+            <p>Sopra la soglia che hai scelto, l'interstiziale. Sotto, la pillola. In entrambi i casi il verdetto finisce in <code>storage.session</code>, ed è <b>quello</b> che il popup della barra ti rilegge: un solo numero, non due calcoli che si somigliano.</p>
+
+            <div class="flow__ranks"><span class="flow__rank r1" title="Nessun segnale noto">1</span><span class="flow__rank r2" title="Qualche anomalia">2</span><span class="flow__rank r3" title="Sospetto moderato">3</span><span class="flow__rank r4" title="Rischio elevato">4</span><span class="flow__rank r5" title="Minaccia confermata">5</span></div>
+          </div>
+        </li>
+      </ol>
 
     <div class="scale">
         <div class="scale__item">
@@ -941,7 +1030,7 @@ code {
 <!-- ─── Catalogo delle regole ────────────────────────────────────────────── -->
 <section class="band" id="regole">
   <div class="wrap">
-    <span class="eyebrow">22 regole · 50 marchi · 150 domini legittimi</span>
+    <span class="eyebrow">22 regole · 50 marchi · 151 domini legittimi</span>
     <h2>Cosa guarda, esattamente</h2>
     <p class="lede">
       Ogni regola alimenta una delle quattro categorie. Questo elenco è generato da
