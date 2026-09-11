@@ -24,6 +24,8 @@ const read = (file) => readFile(join(root, file), 'utf8');
 
 const manifest = JSON.parse(await read('manifest.json'));
 const contentScript = await read('content.js');
+const background = await read('background.js');
+const optionsPage = await read('options.html');
 const packager = await read('tools/package.mjs');
 
 // ─── Il manifest ─────────────────────────────────────────────────────────────
@@ -90,6 +92,23 @@ test('il content script non compone l\'elenco delle anomalie con innerHTML', () 
 
 test('il content script ignora i sottoframe', () => {
   assert.match(contentScript, /window\.top\s*!==\s*window/);
+});
+
+// ─── L'allowlist è collegata ─────────────────────────────────────────────────
+
+test('il background alimenta davvero la regola user-allowlisted', () => {
+  // La regola esisteva dal primo giorno e non è mai scattata, perché nessuno
+  // scriveva `context.userAllowlisted`. Questo test è ciò che impedisce che
+  // torni a essere codice morto.
+  assert.match(background, /isAllowlisted/);
+  assert.match(background, /userAllowlisted:/);
+});
+
+test('la pagina delle opzioni espone il campo dell\'allowlist', () => {
+  assert.match(optionsPage, /id="allowlist"/);
+  // Il servizio che dà un sottodominio per cliente è la trappola vera di
+  // qualunque whitelist: la pagina deve dirlo, non lasciarlo scoprire.
+  assert.match(optionsPage, /awsapps\.com/);
 });
 
 // ─── Il pacchetto ────────────────────────────────────────────────────────────

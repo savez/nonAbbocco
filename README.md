@@ -77,6 +77,12 @@ Il processo completo, con i casi svolti, è in **[docs/RANKING.md](docs/RANKING.
 interrompe la navigazione e ti dice cosa è stato osservato. Sotto la soglia, una pillola discreta
 in alto a destra con il rank e le anomalie.
 
+**Nelle opzioni.** Oltre alla soglia di blocco, un elenco di **siti sempre attendibili**: su quelli
+NonAbbocco non segnala nulla. Una voce copre anche i suoi sottodomini — `esempio.it` vale per
+`www.esempio.it` — ma non i domini che se la portano appresso nel nome, come `esempio.it.truffa.xyz`,
+che è esattamente la forma d'attacco da riconoscere. L'unica cosa che l'allowlist non mette a tacere
+è un riscontro di Safe Browsing: quello è un fatto verificato, non un'euristica.
+
 **Nella barra degli strumenti.** Cliccando l'icona si apre il popup con il verdetto della pagina
 corrente: il rank con la sua etichetta, l'indirizzo spezzato sul dominio registrabile — l'unico
 pezzo che dice davvero di chi è il sito — le quattro categorie con il loro livello di evidenza, e
