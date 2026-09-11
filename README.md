@@ -27,6 +27,7 @@ lascia il browser.
 | Alfabeti mescolati dentro la stessa parola | `pаypal.com` con la `а` cirillica |
 | Testo civetta prima della chiocciola | `https://paypal.com@evil-collector.xyz` |
 | Hosting effimero con TLS valido | `random-kit.pages.dev/signin` |
+| Marchio nel sottodominio di una piattaforma condivisa | `paypal.s3.amazonaws.com/login` |
 | Credenziali su HTTP in chiaro | qualunque login senza cifratura |
 | Indirizzi IP pubblici al posto di un dominio | `http://185.220.101.5/banca/accedi` |
 
@@ -75,6 +76,12 @@ Il processo completo, con i casi svolti, è in **[docs/RANKING.md](docs/RANKING.
 **Sulla pagina.** Sopra la soglia che hai scelto nelle opzioni, un interstiziale a schermo intero
 interrompe la navigazione e ti dice cosa è stato osservato. Sotto la soglia, una pillola discreta
 in alto a destra con il rank e le anomalie.
+
+**Nelle opzioni.** Oltre alla soglia di blocco, un elenco di **siti sempre attendibili**: su quelli
+NonAbbocco non segnala nulla. Una voce copre anche i suoi sottodomini — `esempio.it` vale per
+`www.esempio.it` — ma non i domini che se la portano appresso nel nome, come `esempio.it.truffa.xyz`,
+che è esattamente la forma d'attacco da riconoscere. L'unica cosa che l'allowlist non mette a tacere
+è un riscontro di Safe Browsing: quello è un fatto verificato, non un'euristica.
 
 **Nella barra degli strumenti.** Cliccando l'icona si apre il popup con il verdetto della pagina
 corrente: il rank con la sua etichetta, l'indirizzo spezzato sul dominio registrabile — l'unico
@@ -157,6 +164,11 @@ salvata in `storage.local` — non in `storage.sync` — per non finire sincroni
 
 ## Limiti, dichiarati invece che nascosti
 
+- **Su una piattaforma condivisa il dominio non garantisce per il sottodominio.** `s3.amazonaws.com`,
+  `awsapps.com`, `storage.googleapis.com`: il dominio è di Amazon o di Google, ma ogni sottodominio
+  è di un cliente diverso e non verificato. NonAbbocco lo tiene presente — `miaazienda.awsapps.com`
+  passa, `paypal.awsapps.com` no — ma il riconoscimento della piattaforma dipende dalla stessa lista
+  di marchi che è il limite qui sotto.
 - **La lista dei marchi è il collo di bottiglia e non scala.** Nessuna lista curata a mano coprirà
   i marchi non previsti. Per questo un marchio riconosciuto da solo non produce un rank alto, e per
   questo la copertura ampia è compito di Safe Browsing — una lista che non manteniamo noi.

@@ -8,7 +8,10 @@
     .card { max-width: 480px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 24px; border: 1px solid #334155; }
     h2 { font-size: 18px; margin-top: 0; display: flex; align-items: center; gap: 8px; }
     label { font-size: 13px; color: #cbd5e1; display: block; margin: 12px 0 6px; }
-    select { width: 100%; background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 8px; padding: 10px; font-size: 13px; }
+    select, textarea { width: 100%; background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 8px; padding: 10px; font-size: 13px; box-sizing: border-box; font-family: inherit; }
+    textarea { min-height: 96px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.5; }
+    hr { border: none; border-top: 1px solid #334155; margin: 22px 0 0; }
+    .warn { font-size: 11px; color: #fde68a; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); border-radius: 8px; padding: 8px 10px; margin-top: 8px; line-height: 1.45; }
     .desc { font-size: 11px; color: #94a3b8; margin-top: 6px; line-height: 1.4; }
     button { width: 100%; margin-top: 20px; background: #e11d48; color: #fff; border: none; padding: 11px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     button:hover { background: #f43f5e; }
@@ -26,10 +29,19 @@
       <option value="2">Livello 2 in su (Massima Allerta)</option>
     </select>
     <p class="desc">I livelli inferiori alla soglia prescelta mostreranno una pillola informativa discreta con il relativo ranking visibile senza bloccare la pagina.</p>
+
+    <hr>
+
+    <label for="allowlist">Siti sempre attendibili (uno per riga):</label>
+    <textarea id="allowlist" spellcheck="false" autocapitalize="off" autocorrect="off"
+              placeholder="intranet.azienda.it&#10;https://portale.esempio.it"></textarea>
+    <p class="desc">Su questi siti NonAbbocco non segnala nulla. Puoi incollare anche l'indirizzo intero: viene tenuto solo il nome del sito. Una voce copre anche i suoi sottodomini — <code>esempio.it</code> vale anche per <code>www.esempio.it</code> — ma non i domini che se la portano appresso nel nome, come <code>esempio.it.truffa.xyz</code>.</p>
+    <p class="warn">Attenzione sui servizi che danno un sottodominio a ogni cliente. Mettere <code>awsapps.com</code> qui non rende attendibile solo il tuo portale: accetta anche <code>paypal.awsapps.com</code>, che è un attacco. Scrivi il nome completo del tuo sito, non quello della piattaforma.</p>
+
     <button id="save">Salva Impostazioni</button>
     <div id="status" class="msg" role="status" aria-live="polite"></div>
   </div>
 
-  <script src="options.js"></script>
+  <script type="module" src="options.js"></script>
 </body>
 </html>

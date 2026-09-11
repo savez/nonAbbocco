@@ -129,6 +129,39 @@
       "formAction": null,
       "maxRank": 2,
       "note": "Moltissimi progetti legittimi vivono su hosting gratuito. Per questo 'ephemeral-hosting' è una regola debole: da sola non deve produrre un allarme, serve la congiunzione con una richiesta di credenziali."
+    },
+    {
+      "id": "aws-sso-portale-cliente",
+      "url": "https://miaazienda.awsapps.com/start",
+      "maxRank": 1,
+      "wasFalsePositive": 2,
+      "note": "awsapps.com è un suffisso privato della PSL: AWS dà un sottodominio a ogni cliente per IAM Identity Center, WorkMail e WorkDocs. 'ephemeral-hosting' ci scattava sopra, perché guardava solo la profondità del suffisso privato senza chiedersi di chi fosse la piattaforma. Un portale SSO aziendale non è hosting effimero."
+    },
+    {
+      "id": "aws-sso-portale-con-id-generato",
+      "url": "https://d-9067abc123.awsapps.com/start/#/",
+      "maxRank": 1,
+      "note": "La stessa piattaforma con l'identificativo generato da AWS invece dell'alias scelto dal cliente: è la forma che vede chi non ha configurato un alias."
+    },
+    {
+      "id": "aws-sso-pagina-di-accesso",
+      "url": "https://miaazienda.awsapps.com/connect/login",
+      "hasPassword": true,
+      "maxRank": 1,
+      "wasFalsePositive": 3,
+      "note": "Lo stesso portale sulla sua pagina di accesso: 'access-words-in-url' aggiungeva credentials 1 all'identity 1 di 'ephemeral-hosting' e il rango saliva a 3. Chiedere una password è la cosa più normale per un portale SSO."
+    },
+    {
+      "id": "bucket-s3-legittimo",
+      "url": "https://documenti-azienda.s3.amazonaws.com/listino.pdf",
+      "maxRank": 1,
+      "note": "Un bucket S3 senza marchi altrui nel sottodominio resta a 1 anche dopo che 'trusted-brand-domain' ha smesso di sopprimere l'identità sulle piattaforme condivise: non c'è nulla da sopprimere, perché non è scattato nulla."
+    },
+    {
+      "id": "endpoint-api-gateway",
+      "url": "https://abcdef123.execute-api.eu-west-1.amazonaws.com/prod/stato",
+      "maxRank": 1,
+      "note": "Le label `execute-api` e `eu-west-1` le impone AWS, non chi usa l'endpoint: l'unica scelta da lui è `abcdef123`. Contare anche quelle faceva scattare 'deep-subdomain-nesting' su ogni endpoint di API Gateway. Vale identico per `blob.core.windows.net` su Azure."
     }
   ]
 }

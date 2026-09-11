@@ -43,17 +43,29 @@ const ACCESS_WORDS = [
 
 /**
  * Il marchio evocato dai token di un dominio, se il dominio non gli appartiene.
+ *
  * @param {string[]} tokens
  * @param {string|null} registrableDomain
+ * @param {boolean} [onSharedHosting]  Vero quando l'hostname sta su una
+ *   piattaforma che assegna un sottodominio per cliente (`s3.amazonaws.com`,
+ *   `awsapps.com`, `storage.googleapis.com`). Lì l'appartenenza del dominio a
+ *   un marchio non garantisce per il sottodominio, e va ignorata.
  * @returns {import('./brands.js').Brand|null}
  */
-function foreignBrandFromTokens(tokens, registrableDomain) {
+function foreignBrandFromTokens(tokens, registrableDomain, onSharedHosting = false) {
   // Suffisso pubblico ignoto ⇒ nessun verdetto sui marchi. Vedi la deviazione
   // documentata in src/psl.js: indovinare il dominio registrabile
   // reintrodurrebbe la classe di falsi positivi che la PSL esiste per
   // eliminare. Meglio tacere che sbagliare.
   if (!registrableDomain) return null;
-  if (LEGIT_DOMAINS.has(registrableDomain)) return null;
+
+  // Un dominio che appartiene davvero a un marchio può nominare altri marchi
+  // nei propri sottodomini senza che sia un attacco — ma solo se è quel
+  // marchio a controllarli. Su una piattaforma condivisa non è così: il
+  // dominio è di Amazon, il sottodominio è di chiunque abbia un account. È la
+  // scorciatoia che mandava `paypal.s3.amazonaws.com` a rango 1.
+  if (!onSharedHosting && LEGIT_DOMAINS.has(registrableDomain)) return null;
+
   for (const token of tokens || []) {
     const brand = LABEL_INDEX.get(token);
     if (brand && !brand.legit.includes(registrableDomain)) return brand;
@@ -69,7 +81,24 @@ export const RULES = [
     kind: 'suppress',
     phase: 'url',
     suppresses: ['identity'],
-    test: (s) => (s.registrableDomain && LEGIT_DOMAINS.has(s.registrableDomain) ? {} : null)
+    // La condizione su `isEphemeralHosting` distingue due fatti che la
+    // versione precedente confondeva.
+    //
+    // «Il dominio registrabile è di Amazon» è una garanzia forte per
+    // `amazon.it`, dove Amazon controlla l'intero sito. È quasi priva di
+    // significato per `s3.amazonaws.com` o `awsapps.com`: lì il dominio è di
+    // Amazon, ma OGNI SOTTODOMINIO È DI UN CLIENTE DIVERSO E NON VERIFICATO.
+    // Sopprimere l'identità su quella base mandava `paypal.s3.amazonaws.com`
+    // — un kit di phishing su bucket, forma classica e diffusa — a rango 1,
+    // perché azzerava `brand-in-subdomain` prima ancora di valutarla.
+    //
+    // Su una piattaforma condivisa, quindi, il marchio possiede la
+    // piattaforma e non l'inquilino, e non ha titolo per garantire per lui.
+    test: (s) => (
+      s.registrableDomain && LEGIT_DOMAINS.has(s.registrableDomain) && !s.isEphemeralHosting
+        ? {}
+        : null
+    )
   },
   {
     id: 'private-network',
@@ -110,7 +139,7 @@ export const RULES = [
     // verifica-account.xyz, e "paypal.com" è solo testo nel sottodominio.
     // È la singola regola con il miglior rapporto valore/costo.
     test: (s) => {
-      const brand = foreignBrandFromTokens(s.subdomainTokens, s.registrableDomain);
+      const brand = foreignBrandFromTokens(s.subdomainTokens, s.registrableDomain, s.isEphemeralHosting);
       return brand ? { brand: brand.id, name: brand.name } : null;
     }
   },
@@ -124,7 +153,7 @@ export const RULES = [
     // sicuro tenere in lista nomi brevi come "tim" senza marcare
     // "timbrature.it".
     test: (s) => {
-      const brand = foreignBrandFromTokens(s.domainTokens, s.registrableDomain);
+      const brand = foreignBrandFromTokens(s.domainTokens, s.registrableDomain, s.isEphemeralHosting);
       return brand ? { brand: brand.id, name: brand.name } : null;
     }
   },
@@ -185,7 +214,23 @@ export const RULES = [
     // Ma è il terreno del phishing moderno, che così ottiene TLS valido senza
     // registrare un dominio — ed è il caso che il motore storico giudicava
     // "Ritenuto Sicuro".
-    test: (s) => (s.isEphemeralHosting ? { suffix: s.publicSuffix } : null)
+    //
+    // L'eccezione riguarda le piattaforme gestite da un marchio noto:
+    // `miaazienda.awsapps.com` è il portale SSO di un'azienda che ha un
+    // contratto con AWS, non un sottodominio gratuito preso in cinque minuti.
+    // La differenza non è nella struttura del nome — è identica — ma in chi
+    // gestisce la piattaforma, ed è esattamente ciò che la lista dei marchi
+    // sa già dire. Senza questa eccezione la regola segnalava come effimero
+    // ogni portale aziendale su AWS, Google Cloud o Azure.
+    //
+    // Attenzione: questo NON rende innocuo il sottodominio. `brand-in-subdomain`
+    // continua a valutarlo, ed è il motivo per cui `paypal.awsapps.com` resta
+    // un attacco mentre `miaazienda.awsapps.com` no.
+    test: (s) => (
+      s.isEphemeralHosting && !(s.registrableDomain && LEGIT_DOMAINS.has(s.registrableDomain))
+        ? { suffix: s.publicSuffix }
+        : null
+    )
   },
   {
     id: 'suspicious-tld',
@@ -199,7 +244,14 @@ export const RULES = [
     kind: 'weak',
     phase: 'url',
     category: 'identity',
-    test: (s) => ((s.subdomainTokens?.length ?? 0) >= 4 ? { depth: s.subdomainTokens.length } : null)
+    // Su `tenantSubdomainTokens` e non su `subdomainTokens`: le label che la
+    // piattaforma impone — `execute-api.eu-west-1` su API Gateway,
+    // `blob.core` su Azure Storage — non le ha scelte chi ci sta sopra, e
+    // contarle contro di lui segnalava ogni endpoint legittimo. Fuori
+    // dall'hosting condiviso i due valori coincidono.
+    test: (s) => ((s.tenantSubdomainTokens?.length ?? 0) >= 4
+      ? { depth: s.tenantSubdomainTokens.length }
+      : null)
   },
   {
     id: 'brand-claimed-in-title',
@@ -210,7 +262,7 @@ export const RULES = [
     // Curiosamente questa regola esisteva solo nella demo e non nel motore.
     test: (s) => {
       if (!s.titleTokens?.length) return null;
-      const brand = foreignBrandFromTokens(s.titleTokens, s.registrableDomain);
+      const brand = foreignBrandFromTokens(s.titleTokens, s.registrableDomain, s.isEphemeralHosting);
       return brand ? { brand: brand.id, name: brand.name } : null;
     }
   },

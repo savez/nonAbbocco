@@ -39,6 +39,7 @@
 
 import { buildUrlSignals, normalizeDomSignals, evaluate } from './src/scoring.js';
 import { rankPresentation } from './src/ranks.js';
+import { isAllowlisted } from './src/allowlist.js';
 
 const api = globalThis.browser ?? globalThis.chrome;
 
@@ -83,7 +84,16 @@ async function analyze(message, sender) {
   // in cui il primo manchi.
   const url = sender.url || message.url || '';
 
-  const urlSignals = buildUrlSignals(url);
+  const settings = await readSettings();
+
+  // L'allowlist entra come CONTESTO, non come scorciatoia che salta la
+  // valutazione: il verdetto viene calcolato lo stesso e la regola
+  // `user-allowlisted` sopprime le categorie. Così il popup può dire
+  // «non segnalato perché lo hai indicato tu» invece di non dire nulla, e il
+  // veto di Safe Browsing continua a passare sopra la scelta dell'utente.
+  const urlSignals = buildUrlSignals(url, {
+    userAllowlisted: isAllowlisted(hostnameOf(url), settings.allowlist)
+  });
   if (!urlSignals.valid) return null;
 
   const dom = message.dom && typeof message.dom === 'object' ? message.dom : null;
@@ -104,21 +114,41 @@ async function analyze(message, sender) {
 
   return {
     verdict,
-    blockThreshold: await readThreshold(),
+    blockThreshold: settings.blockThreshold,
     // La palette arriva da qui così content.js non tiene più colori propri:
     // popup e pillola non possono colorare lo stesso rank in modo diverso.
     presentation: rankPresentation(verdict.rank)
   };
 }
 
-/** @returns {Promise<number>} */
-async function readThreshold() {
+/**
+ * Le impostazioni dell'utente, in una lettura sola.
+ * @returns {Promise<{blockThreshold: number, allowlist: string[]}>}
+ */
+async function readSettings() {
   try {
-    const items = await api.storage.sync.get({ blockThreshold: DEFAULT_THRESHOLD });
-    const value = Number(items.blockThreshold);
-    return Number.isFinite(value) ? value : DEFAULT_THRESHOLD;
+    const items = await api.storage.sync.get({
+      blockThreshold: DEFAULT_THRESHOLD,
+      allowlist: []
+    });
+    const threshold = Number(items.blockThreshold);
+    return {
+      blockThreshold: Number.isFinite(threshold) ? threshold : DEFAULT_THRESHOLD,
+      allowlist: Array.isArray(items.allowlist) ? items.allowlist : []
+    };
   } catch {
-    return DEFAULT_THRESHOLD;
+    // Impostazioni illeggibili: si protegge con i valori di default, non si
+    // smette di proteggere.
+    return { blockThreshold: DEFAULT_THRESHOLD, allowlist: [] };
+  }
+}
+
+/** @param {string} url */
+function hostnameOf(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
   }
 }
 
