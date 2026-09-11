@@ -58,6 +58,29 @@ rank 2  ⟸  identità ≥ 1  O  trasporto ≥ 1  O  reputazione ≥ 1
 rank 1  ⟸  nessuna evidenza
 ```
 
+### Il percorso, dai segnali al numero
+
+```mermaid
+flowchart TD
+    A["1 · La pagina finisce di caricarsi<br/>content.js legge il DOM e si ferma lì<br/>— non decide nulla —"]
+    B["campi password · nomi dei campi<br/>destinazione dei form · titolo · testo"]
+    C["2 · background.js<br/>l'unico contesto che può importare il motore,<br/>quindi l'unico posto dove le euristiche esistono"]
+    D["dall'indirizzo: punycode, dominio registrabile via PSL,<br/>tokenizzazione, skeleton dei confondibili"]
+    E["3 · Le regole scattano in ordine<br/>esenzioni, veto, forti (2 livelli), deboli (1 livello)"]
+    F["4 · Quattro categorie, ciascuna saturata a 3<br/>identity · credentials · transport · reputation"]
+    G["5 · Tabella di lookup sulla quaterna dei livelli<br/>non una soglia su una somma"]
+    H(["rank 1-5"])
+    I["interstiziale, oppure pillola discreta"]
+    J["storage.session, riletto dal popup della barra"]
+
+    A --> B --> C --> D --> E --> F --> G --> H
+    H --> I
+    H --> J
+```
+
+Il popup **non ricalcola**: rilegge lo stesso verdetto che ha prodotto la pillola. Un solo numero,
+non due calcoli che si somigliano.
+
 Nota che **le credenziali non compaiono mai da sole**: una pagina che chiede una password non è
 per questo sospetta — è la cosa più normale del web. Contano solo in congiunzione. È questa scelta
 che ha eliminato i falsi positivi su `posteitaliane.it` e `login.microsoftonline.com`, e che
