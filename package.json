@@ -1,6 +1,6 @@
 {
   "name": "nonabbocco",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "description": "Estensione Chrome e Firefox anti-phishing: analizza URL e DOM, calcola un ranking di rischio 1-5 e sostituisce la pagina con un interstiziale non manomettibile.",
   "type": "module",
