@@ -146,6 +146,11 @@ function suppressionsCard(suppressions) {
 function footer(view) {
   const foot = el('footer');
   foot.appendChild(el('div', null, `Analisi eseguita ${view.age}. Ricarica la pagina per rifarla.`));
+  if (view.bypassed) {
+    foot.appendChild(el('div', 'warn',
+      'Hai scelto di procedere comunque su questo sito: il blocco resta disattivato ' +
+      'finché la scheda è aperta. Il verdetto qui sopra non cambia.'));
+  }
   if (view.partial) {
     foot.appendChild(el('div', 'warn',
       'Verdetto basato sul solo indirizzo: il contenuto della pagina non è stato esaminato.'));

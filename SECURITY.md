@@ -25,6 +25,13 @@ Considero vulnerabilità, in ordine di gravità:
   l'interstiziale di blocco.
 - **Concessione forgiata del bypass**: qualunque strada per cui una pagina web ottenga
   un'autorizzazione a procedere senza che l'utente l'abbia data dall'interstiziale.
+
+  La concessione vive in `storage.session`, lato background, ed è chiavata su scheda e sito. I
+  content script non possono leggerla né scriverla, e l'unico modo per registrarla è un messaggio
+  che il background accetta soltanto se arriva dal documento principale di una scheda reale —
+  condizione che verifica su `sender`, cioè su dati scritti dal browser e non dalla pagina.
+  Finché stava in `sessionStorage` una pagina ostile poteva dichiararsi già scavalcata; quella
+  strada è chiusa.
 - **Escalation dal content script**: il content script gira su `<all_urls>`, quindi anche
   dentro la pagina dell'attaccante. Qualunque modo per cui la pagina lo usi per raggiungere il
   background, leggere stato privilegiato o influenzare un verdetto.
@@ -49,8 +56,12 @@ Per trasparenza, questi sono limiti noti e dichiarati, non difetti:
 - **Un falso positivo su un sito legittimo.** Apri una issue pubblica con l'URL: serve ad
   ampliare il corpus di test.
 - **La finestra di race dell'interstiziale.** In Manifest V3 non esiste alcun hook di rete
-  bloccante, quindi la pagina inizia a caricarsi prima che il verdetto esista. È documentato in
-  `docs/ARCHITECTURE.md`.
+  bloccante, quindi la pagina inizia a caricarsi prima che il verdetto esista.
+- **La rimozione dell'overlay da parte della pagina.** L'interstiziale e la pillola sono nodi del
+  DOM della pagina analizzata: una riga di JS li toglie. È un limite dell'approccio a content
+  script, non un difetto di implementazione, ed è dichiarato. La strada per chiuderlo — un
+  interstiziale che sia una pagina dell'estensione, raggiunta con `webNavigation` prima che la
+  pagina esista — è la Fase 5 di `docs/ROADMAP.md`.
 - **Il fatto che un rank 1 non garantisca nulla.** "Nessun segnale noto" non significa "sicuro",
   ed è scritto così di proposito in tutta la UI.
 - **Rilevabilità dell'estensione** da parte di una pagina, quando derivi da meccanismi

@@ -132,6 +132,19 @@ test('un attacco da manuale porta segnali e categorie sopra zero', () => {
   assert.equal(view.partial, false);
 });
 
+test('il popup dice quando l\'utente ha scavalcato il blocco', () => {
+  const entry = entryFor('https://paypal-secure.xyz/login', { hasPassword: true });
+
+  assert.equal(buildPopupView(entry, 0).bypassed, false);
+  assert.equal(buildPopupView({ ...entry, bypassed: true }, 0).bypassed, true);
+
+  // Il bypass NON abbassa il verdetto: spegne il blocco, non il giudizio.
+  assert.equal(
+    buildPopupView({ ...entry, bypassed: true }, 0).rank,
+    buildPopupView(entry, 0).rank
+  );
+});
+
 test('un verdetto sul solo indirizzo è dichiarato come parziale', () => {
   const onlyUrl = buildPopupView(entryFor('https://paypal-secure.xyz/'), 0);
   assert.equal(onlyUrl.partial, true);
