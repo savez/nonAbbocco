@@ -138,6 +138,8 @@ a { color: inherit; }
 }
 .topnav a svg { flex: none; }
 .topnav a:hover { color: var(--ink); background: var(--paper-sunk); }
+.topnav a.topnav__cta { margin-left: .35rem; background: var(--ink); color: var(--paper); font-weight: 700; padding-inline: .85rem; }
+.topnav a.topnav__cta:hover { background: var(--ink); color: var(--paper); }
 .topnav .is-hidden-sm { display: none; }
 @media (min-width: 720px) { .topnav .is-hidden-sm { display: inline-block; } }
 
@@ -613,8 +615,14 @@ code {
 
 /* ─── Sostegno: qui parla il progetto, quindi il gradiente ────────────────── */
 
+/* ─── Open source: la firma dell'autore, comune alle landing di @savez ──────── */
+
+.author { display: flex; align-items: center; gap: .8rem; margin: 1.4rem 0 0; color: var(--muted); font-size: .92rem; max-width: var(--measure); }
+.author img { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--rule); }
+.stack { list-style: none; margin: 1.6rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.stack li { font-family: var(--mono); font-size: .74rem; border: 1px solid var(--rule); border-radius: 999px; padding: .22rem .65rem; color: var(--muted); }
+
 .support {
-  margin-top: 2rem;
   border-radius: 4px;
   padding: 2px;
   background: linear-gradient(105deg, var(--brand-a), var(--brand-b) 52%, var(--brand-c));
@@ -627,6 +635,7 @@ code {
   gap: 1.2rem;
 }
 @media (min-width: 720px) { .support__in { grid-template-columns: 1fr auto; align-items: center; } }
+.support .eyebrow { display: block; margin-bottom: .45rem; }
 .support h3 { font-size: 1.15rem; letter-spacing: -.02em; }
 .support p { margin: .35rem 0 0; color: var(--muted); font-size: .9rem; max-width: 48ch; }
 .support .btn--coffee {
@@ -647,6 +656,19 @@ code {
 .foot a { font-size: .87rem; text-decoration: none; color: var(--muted); }
 .foot a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .foot__note { font-size: .8rem; color: var(--muted); margin: 0; max-width: 40ch; }
+.foot__sign { display: grid; gap: 1.4rem; margin-top: 2rem; padding-top: 1.6rem; border-top: 1px solid var(--rule-soft); }
+@media (min-width: 760px) { .foot__sign { grid-template-columns: 1fr 1.6fr; align-items: start; } }
+.foot__author, .foot__others a { display: flex; align-items: center; gap: .75rem; color: var(--ink); }
+.foot a.foot__author, .foot__others a { color: var(--ink); text-decoration: none; }
+.foot__author img { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--rule); }
+.foot__author > span, .foot__others a > span { display: grid; line-height: 1.35; font-size: .87rem; }
+.foot__author > span > span, .foot__others a > span > span { color: var(--muted); font-size: .8rem; }
+.foot__others ul { gap: .5rem; }
+@media (min-width: 760px) { .foot__others ul { grid-template-columns: 1fr 1fr; } }
+.foot__others a { border: 1px solid var(--rule); border-radius: 4px; padding: .6rem .8rem; background: var(--paper-sunk); }
+.foot__others a:hover { border-color: var(--muted); text-decoration: none; }
+.foot__others img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
+.foot__legal a { font-size: inherit; color: var(--ink); }
 .foot__legal { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--rule-soft); font-family: var(--mono); font-size: .68rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; justify-content: space-between; }
 
 .warnbox {

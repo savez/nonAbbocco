@@ -40,9 +40,27 @@ const css = await readFile(join(root, 'tools', 'page-parts', 'style.css'), 'utf8
 
 const REPO = 'https://github.com/savez/nonAbbocco';
 const COFFEE = 'https://buymeacoffee.com/goeokwihgz';
+const AUTHOR = { handle: '@savez', url: 'https://github.com/savez' };
+const { version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+
+// I progetti di @savez: stessa lista, stesso ordine, nel piede di tutte e tre
+// le landing (nonAbbocco, bacco, fidality-card). Se ne aggiungi uno, aggiungilo
+// anche nelle altre due.
+const PROJECTS = [
+  { id: 'nonabbocco', name: 'NonAbbocco', url: 'https://nonabbocco.smzstudio.it/', icon: 'assets/progetti/nonabbocco.png', what: 'Ti avvisa quando un indirizzo imita un sito vero.' },
+  { id: 'bacco', name: 'Bacco', url: 'https://bacco.smzstudio.it/', icon: 'assets/progetti/bacco.svg', what: 'Il diario dei vini e delle birre che bevi.' },
+  { id: 'fidelity-card', name: 'Fidelity Card', url: 'https://fidality-card.smzstudio.it/', icon: 'assets/progetti/fidelity-card.svg', what: 'Le tessere fedeltà, sul telefono.' },
+];
 
 const esc = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const otherProjects = PROJECTS.filter((p) => p.id !== 'nonabbocco').map((p) => `          <li>
+            <a href="${p.url}" rel="noopener">
+              <img src="${p.icon}" alt="" width="28" height="28" loading="lazy">
+              <span><b>${esc(p.name)}</b><span>${esc(p.what)}</span></span>
+            </a>
+          </li>`).join('\n');
 
 const brandCount = BRANDS.length;
 const domainCount = BRANDS.reduce((n, b) => n + b.legit.length, 0);
@@ -178,6 +196,8 @@ const page = `<!DOCTYPE html>
 <meta property="og:title" content="NonAbbocco — difesa anti-phishing con ranking 1-5">
 <meta property="og:description" content="L'indirizzo sembra giusto. Non lo è. Estensione Chrome e Firefox, analisi locale, open source.">
 <meta property="og:image" content="assets/banner.svg">
+<meta name="author" content="savez (https://github.com/savez)">
+<link rel="author" href="${AUTHOR.url}">
 <link rel="icon" href="icons/icon-48.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -201,7 +221,7 @@ ${css}
       <a href="#regole" class="is-hidden-sm">Regole</a>
       <a href="#limiti" class="is-hidden-sm">Limiti</a>
       <a href="${REPO}" aria-label="Codice su GitHub">${ICON_GITHUB}<span class="is-hidden-sm">GitHub</span></a>
-      <a href="#installa">Installa</a>
+      <a href="#installa" class="topnav__cta">Installa</a>
     </nav>
   </div>
 </header>
@@ -510,9 +530,36 @@ ${ruleCatalogue}
       </div>
     </div>
 
+  </div>
+</section>
+
+<!-- ─── Open source ──────────────────────────────────────────────────────── -->
+<section class="band" id="open-source">
+  <div class="wrap">
+    <span class="eyebrow">Open source</span>
+    <h2>Leggilo, verificalo, miglioralo</h2>
+    <p class="lede">
+      Licenza MIT. Uno strumento che guarda ogni pagina che apri deve poter essere controllato
+      da chiunque: il codice è su GitHub, le segnalazioni e le PR sono benvenute.
+      <a href="${REPO}/blob/main/CONTRIBUTING.md">Come contribuire</a>.
+    </p>
+    <p class="author">
+      <img src="assets/progetti/savez.jpg" alt="" width="40" height="40" loading="lazy">
+      <span>Scritto e mantenuto da <a href="${AUTHOR.url}">${AUTHOR.handle}</a>, autore e contributor principale.</span>
+    </p>
+    <ul class="stack">
+      <li>Manifest V3</li><li>Chrome e Firefox</li><li>JavaScript senza dipendenze</li><li>Public Suffix List</li><li>Google Safe Browsing</li><li>node --test</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─── Sostegno ─────────────────────────────────────────────────────────── -->
+<section class="band" id="sostieni">
+  <div class="wrap">
     <div class="support">
       <div class="support__in">
         <div>
+          <span class="eyebrow">Un progetto indipendente di ${AUTHOR.handle}</span>
           <h3>NonAbbocco è gratis e lo resterà</h3>
           <p>
             Nessuna telemetria da rivendere, nessuna versione a pagamento, nessun investitore da
@@ -544,7 +591,7 @@ ${ruleCatalogue}
         <h4>Progetto</h4>
         <ul>
           <li><a href="${REPO}">Codice sorgente</a></li>
-          <li><a href="${REPO}/blob/main/docs/RANKING.md">Come decide il rank</a></li>
+          <li><a href="${REPO}/blob/main/CHANGELOG.md">Novità</a></li>
           <li><a href="${REPO}/blob/main/CONTRIBUTING.md">Contribuire</a></li>
           <li><a href="${REPO}/issues">Segnala un falso positivo</a></li>
         </ul>
@@ -553,15 +600,27 @@ ${ruleCatalogue}
         <h4>Sostieni</h4>
         <ul>
           <li><a href="${COFFEE}" rel="noopener">Offrimi un caffè</a></li>
+          <li><a href="${REPO}/stargazers">Metti una stella</a></li>
           <li><a href="${REPO}/blob/main/SECURITY.md">Segnala una vulnerabilità</a></li>
           <li><a href="${REPO}/blob/main/LICENSE">Licenza MIT</a></li>
-          <li><a href="${REPO}/stargazers">Metti una stella</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot__sign">
+      <a class="foot__author" href="${AUTHOR.url}">
+        <img src="assets/progetti/savez.jpg" alt="" width="44" height="44" loading="lazy">
+        <span><b>${AUTHOR.handle}</b><span>Autore e contributor principale</span></span>
+      </a>
+      <div class="foot__others">
+        <h4>Altri progetti di ${AUTHOR.handle}</h4>
+        <ul>
+${otherProjects}
         </ul>
       </div>
     </div>
     <div class="foot__legal">
-      <span>Manifest V3 · Chrome e Firefox · MIT</span>
-      <span>Nessuna telemetria, nessun analytics</span>
+      <span>NonAbbocco v${version}, nessuna telemetria, nessun analytics</span>
+      <span>Fatto da <a href="${AUTHOR.url}">${AUTHOR.handle}</a>, rilasciato con licenza MIT</span>
     </div>
   </div>
 </footer>

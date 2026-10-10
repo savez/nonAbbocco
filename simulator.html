@@ -8,6 +8,8 @@
 <meta property="og:title" content="NonAbbocco — difesa anti-phishing con ranking 1-5">
 <meta property="og:description" content="L'indirizzo sembra giusto. Non lo è. Estensione Chrome e Firefox, analisi locale, open source.">
 <meta property="og:image" content="assets/banner.svg">
+<meta name="author" content="savez (https://github.com/savez)">
+<link rel="author" href="https://github.com/savez">
 <link rel="icon" href="icons/icon-48.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -155,6 +157,8 @@ a { color: inherit; }
 }
 .topnav a svg { flex: none; }
 .topnav a:hover { color: var(--ink); background: var(--paper-sunk); }
+.topnav a.topnav__cta { margin-left: .35rem; background: var(--ink); color: var(--paper); font-weight: 700; padding-inline: .85rem; }
+.topnav a.topnav__cta:hover { background: var(--ink); color: var(--paper); }
 .topnav .is-hidden-sm { display: none; }
 @media (min-width: 720px) { .topnav .is-hidden-sm { display: inline-block; } }
 
@@ -630,8 +634,14 @@ code {
 
 /* ─── Sostegno: qui parla il progetto, quindi il gradiente ────────────────── */
 
+/* ─── Open source: la firma dell'autore, comune alle landing di @savez ──────── */
+
+.author { display: flex; align-items: center; gap: .8rem; margin: 1.4rem 0 0; color: var(--muted); font-size: .92rem; max-width: var(--measure); }
+.author img { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--rule); }
+.stack { list-style: none; margin: 1.6rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.stack li { font-family: var(--mono); font-size: .74rem; border: 1px solid var(--rule); border-radius: 999px; padding: .22rem .65rem; color: var(--muted); }
+
 .support {
-  margin-top: 2rem;
   border-radius: 4px;
   padding: 2px;
   background: linear-gradient(105deg, var(--brand-a), var(--brand-b) 52%, var(--brand-c));
@@ -644,6 +654,7 @@ code {
   gap: 1.2rem;
 }
 @media (min-width: 720px) { .support__in { grid-template-columns: 1fr auto; align-items: center; } }
+.support .eyebrow { display: block; margin-bottom: .45rem; }
 .support h3 { font-size: 1.15rem; letter-spacing: -.02em; }
 .support p { margin: .35rem 0 0; color: var(--muted); font-size: .9rem; max-width: 48ch; }
 .support .btn--coffee {
@@ -664,6 +675,19 @@ code {
 .foot a { font-size: .87rem; text-decoration: none; color: var(--muted); }
 .foot a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .foot__note { font-size: .8rem; color: var(--muted); margin: 0; max-width: 40ch; }
+.foot__sign { display: grid; gap: 1.4rem; margin-top: 2rem; padding-top: 1.6rem; border-top: 1px solid var(--rule-soft); }
+@media (min-width: 760px) { .foot__sign { grid-template-columns: 1fr 1.6fr; align-items: start; } }
+.foot__author, .foot__others a { display: flex; align-items: center; gap: .75rem; color: var(--ink); }
+.foot a.foot__author, .foot__others a { color: var(--ink); text-decoration: none; }
+.foot__author img { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--rule); }
+.foot__author > span, .foot__others a > span { display: grid; line-height: 1.35; font-size: .87rem; }
+.foot__author > span > span, .foot__others a > span > span { color: var(--muted); font-size: .8rem; }
+.foot__others ul { gap: .5rem; }
+@media (min-width: 760px) { .foot__others ul { grid-template-columns: 1fr 1fr; } }
+.foot__others a { border: 1px solid var(--rule); border-radius: 4px; padding: .6rem .8rem; background: var(--paper-sunk); }
+.foot__others a:hover { border-color: var(--muted); text-decoration: none; }
+.foot__others img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
+.foot__legal a { font-size: inherit; color: var(--ink); }
 .foot__legal { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--rule-soft); font-family: var(--mono); font-size: .68rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; justify-content: space-between; }
 
 .warnbox {
@@ -718,7 +742,7 @@ code {
       <a href="#regole" class="is-hidden-sm">Regole</a>
       <a href="#limiti" class="is-hidden-sm">Limiti</a>
       <a href="https://github.com/savez/nonAbbocco" aria-label="Codice su GitHub"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg><span class="is-hidden-sm">GitHub</span></a>
-      <a href="#installa">Installa</a>
+      <a href="#installa" class="topnav__cta">Installa</a>
     </nav>
   </div>
 </header>
@@ -1239,9 +1263,36 @@ code {
       </div>
     </div>
 
+  </div>
+</section>
+
+<!-- ─── Open source ──────────────────────────────────────────────────────── -->
+<section class="band" id="open-source">
+  <div class="wrap">
+    <span class="eyebrow">Open source</span>
+    <h2>Leggilo, verificalo, miglioralo</h2>
+    <p class="lede">
+      Licenza MIT. Uno strumento che guarda ogni pagina che apri deve poter essere controllato
+      da chiunque: il codice è su GitHub, le segnalazioni e le PR sono benvenute.
+      <a href="https://github.com/savez/nonAbbocco/blob/main/CONTRIBUTING.md">Come contribuire</a>.
+    </p>
+    <p class="author">
+      <img src="assets/progetti/savez.jpg" alt="" width="40" height="40" loading="lazy">
+      <span>Scritto e mantenuto da <a href="https://github.com/savez">@savez</a>, autore e contributor principale.</span>
+    </p>
+    <ul class="stack">
+      <li>Manifest V3</li><li>Chrome e Firefox</li><li>JavaScript senza dipendenze</li><li>Public Suffix List</li><li>Google Safe Browsing</li><li>node --test</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─── Sostegno ─────────────────────────────────────────────────────────── -->
+<section class="band" id="sostieni">
+  <div class="wrap">
     <div class="support">
       <div class="support__in">
         <div>
+          <span class="eyebrow">Un progetto indipendente di @savez</span>
           <h3>NonAbbocco è gratis e lo resterà</h3>
           <p>
             Nessuna telemetria da rivendere, nessuna versione a pagamento, nessun investitore da
@@ -1273,7 +1324,7 @@ code {
         <h4>Progetto</h4>
         <ul>
           <li><a href="https://github.com/savez/nonAbbocco">Codice sorgente</a></li>
-          <li><a href="https://github.com/savez/nonAbbocco/blob/main/docs/RANKING.md">Come decide il rank</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/blob/main/CHANGELOG.md">Novità</a></li>
           <li><a href="https://github.com/savez/nonAbbocco/blob/main/CONTRIBUTING.md">Contribuire</a></li>
           <li><a href="https://github.com/savez/nonAbbocco/issues">Segnala un falso positivo</a></li>
         </ul>
@@ -1282,15 +1333,38 @@ code {
         <h4>Sostieni</h4>
         <ul>
           <li><a href="https://buymeacoffee.com/goeokwihgz" rel="noopener">Offrimi un caffè</a></li>
+          <li><a href="https://github.com/savez/nonAbbocco/stargazers">Metti una stella</a></li>
           <li><a href="https://github.com/savez/nonAbbocco/blob/main/SECURITY.md">Segnala una vulnerabilità</a></li>
           <li><a href="https://github.com/savez/nonAbbocco/blob/main/LICENSE">Licenza MIT</a></li>
-          <li><a href="https://github.com/savez/nonAbbocco/stargazers">Metti una stella</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot__sign">
+      <a class="foot__author" href="https://github.com/savez">
+        <img src="assets/progetti/savez.jpg" alt="" width="44" height="44" loading="lazy">
+        <span><b>@savez</b><span>Autore e contributor principale</span></span>
+      </a>
+      <div class="foot__others">
+        <h4>Altri progetti di @savez</h4>
+        <ul>
+          <li>
+            <a href="https://bacco.smzstudio.it/" rel="noopener">
+              <img src="assets/progetti/bacco.svg" alt="" width="28" height="28" loading="lazy">
+              <span><b>Bacco</b><span>Il diario dei vini e delle birre che bevi.</span></span>
+            </a>
+          </li>
+          <li>
+            <a href="https://fidality-card.smzstudio.it/" rel="noopener">
+              <img src="assets/progetti/fidelity-card.svg" alt="" width="28" height="28" loading="lazy">
+              <span><b>Fidelity Card</b><span>Le tessere fedeltà, sul telefono.</span></span>
+            </a>
+          </li>
         </ul>
       </div>
     </div>
     <div class="foot__legal">
-      <span>Manifest V3 · Chrome e Firefox · MIT</span>
-      <span>Nessuna telemetria, nessun analytics</span>
+      <span>NonAbbocco v1.1.2, nessuna telemetria, nessun analytics</span>
+      <span>Fatto da <a href="https://github.com/savez">@savez</a>, rilasciato con licenza MIT</span>
     </div>
   </div>
 </footer>

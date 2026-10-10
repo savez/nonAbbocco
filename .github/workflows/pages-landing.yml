@@ -1,0 +1,75 @@
+name: pages-landing
+
+# Pubblica la landing dal branch `landing`, come per Bacco e Fidelity Card.
+# Il branch `landing` non va MAI unito a `main`.
+#
+# La pagina è `simulator.html`, generata da tools/build-page.mjs, servita come
+# index. Il simulatore importa `src/scoring.js` e il catalogo delle regole nasce
+# da `src/rules.js`: per non mostrare un motore vecchio, il deploy prende `src/`
+# e `package.json` (versione) da `origin/main` e rigenera la pagina con il
+# template di questo branch. Il rebuild giornaliero raccoglie le modifiche al
+# motore fatte su main nel frattempo.
+
+on:
+  push:
+    branches: [landing]
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Motore e versione da main
+        run: |
+          git fetch --depth=1 origin main:refs/remotes/origin/main
+          git checkout origin/main -- src package.json
+          echo "Motore da main: $(git rev-parse --short origin/main), versione $(node -p "require('./package.json').version")" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generazione della pagina
+        run: node tools/build-page.mjs
+
+      - name: Composizione del sito
+        run: |
+          mkdir -p _site
+          cp simulator.html _site/index.html
+          cp -r src _site/src
+          cp -r assets _site/assets
+          cp -r icons _site/icons
+          # Senza questo file Pages passerebbe l'output attraverso Jekyll, che
+          # ignora le cartelle il cui nome comincia per underscore.
+          touch _site/.nojekyll
+          echo "File pubblicati:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          find _site -type f | sort | sed 's|_site/||' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
