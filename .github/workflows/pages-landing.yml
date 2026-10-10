@@ -7,14 +7,14 @@ name: pages-landing
 # index. Il simulatore importa `src/scoring.js` e il catalogo delle regole nasce
 # da `src/rules.js`: per non mostrare un motore vecchio, il deploy prende `src/`
 # e `package.json` (versione) da `origin/main` e rigenera la pagina con il
-# template di questo branch. Il rebuild giornaliero raccoglie le modifiche al
-# motore fatte su main nel frattempo.
+# template di questo branch. Le modifiche al motore fatte su main arrivano sul
+# sito al push successivo su `landing` (o rilanciando questo workflow su
+# `landing`): un cron qui non partirebbe, perché GitHub esegue i `schedule`
+# solo dal branch di default.
 
 on:
   push:
     branches: [landing]
-  schedule:
-    - cron: '0 4 * * *'
   workflow_dispatch:
 
 permissions:
