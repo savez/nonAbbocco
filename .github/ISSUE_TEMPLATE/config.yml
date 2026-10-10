@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentazione e installazione
+    url: https://github.com/savez/nonAbbocco#readme
+    about: Come installare l'estensione e come decide il rank
+  - name: Segnala una vulnerabilità (privato)
+    url: https://github.com/savez/nonAbbocco/security/advisories/new
+    about: Non aprire issue pubbliche per problemi di sicurezza
