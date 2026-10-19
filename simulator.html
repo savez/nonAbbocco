@@ -632,6 +632,61 @@ code {
   padding: .05em .3em;
 }
 
+/* ─── Substack: parla l'autore, non il progetto — quindi niente gradiente ──── */
+/* È l'eroe rovesciato: lì un indirizzo che mente, qui uno che dice il vero.
+ * Il verde resta un verdetto: smzstudio.substack.com è davvero quel dominio. */
+
+.letter {
+  display: grid;
+  gap: clamp(1.4rem, 4vw, 2.6rem);
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  padding: clamp(1.4rem, 4vw, 2.4rem);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 31px, var(--rule-soft) 31px 32px),
+    var(--paper);
+}
+@media (min-width: 860px) { .letter { grid-template-columns: 1.15fr 1fr; align-items: center; } }
+.letter h2 { max-width: 22ch; margin-top: .6rem; }
+.letter .lede { font-size: .95rem; }
+.letter .btn { margin-top: 1.4rem; }
+.letter__addr {
+  display: grid;
+  gap: .75rem;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1.3rem 1.2rem;
+  box-shadow: 6px 6px 0 var(--ink);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.letter__addr:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--ink); }
+@media (prefers-reduced-motion: reduce) { .letter__addr { transition: none; } }
+.letter__url {
+  font-family: var(--mono);
+  font-size: clamp(1.05rem, 2.6vw, 1.45rem);
+  overflow-wrap: anywhere;
+  padding-bottom: .7rem;
+  border-bottom: 2px solid var(--clear);
+}
+.letter__url b { font-weight: 600; }
+.letter__url span { color: var(--muted); }
+.letter__verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  justify-self: start;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--clear);
+  background: var(--clear-wash);
+  border-radius: 999px;
+  padding: .3rem .7rem;
+}
+.letter__note { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+
 /* ─── Sostegno: qui parla il progetto, quindi il gradiente ────────────────── */
 
 /* ─── Open source: la firma dell'autore, comune alle landing di @savez ──────── */
@@ -1283,6 +1338,29 @@ code {
     <ul class="stack">
       <li>Manifest V3</li><li>Chrome e Firefox</li><li>JavaScript senza dipendenze</li><li>Public Suffix List</li><li>Google Safe Browsing</li><li>node --test</li>
     </ul>
+  </div>
+</section>
+
+<!-- ─── Substack: l'unico indirizzo della pagina che è davvero quello che dice -->
+<section class="band" id="substack">
+  <div class="wrap">
+    <div class="letter">
+      <div class="letter__copy">
+        <span class="eyebrow">La newsletter di @savez · su Substack</span>
+        <h2>Come nascono questi progetti, raccontato da chi li scrive.</h2>
+        <p class="lede">
+          Su SMZstudio scrivo di quello che costruisco e di quello che imparo strada facendo:
+          cloud, AI e codice, senza fronzoli. È appena partita: iscriviti e il primo numero
+          arriva direttamente nella tua casella.
+        </p>
+        <a class="btn btn--solid" href="https://smzstudio.substack.com/subscribe" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg> Iscriviti gratis</a>
+      </div>
+      <a class="letter__addr" href="https://smzstudio.substack.com" rel="noopener" aria-label="Apri smzstudio.substack.com">
+        <span class="letter__url"><b>smzstudio</b><span>.substack.com</span></span>
+        <span class="letter__verdict"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> È il sito vero</span>
+        <span class="letter__note">dominio registrabile: substack.com · nessun trucco</span>
+      </a>
+    </div>
   </div>
 </section>
 
