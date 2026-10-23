@@ -1,0 +1,13 @@
+# Le Actions sono pinnate per SHA: Dependabot aggiorna SHA e commento
+# `# vX.Y.Z` insieme, così il pin non resta fermo su una versione vecchia.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ['*']
