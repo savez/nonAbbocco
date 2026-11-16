@@ -1,0 +1,9 @@
+{
+  "name": "d1-browser-spike",
+  "private": true,
+  "type": "module",
+  "description": "Spike usa e getta: d1-omni-600M sul corpus di NonAbbocco. Non fa parte del prodotto.",
+  "dependencies": {
+    "@huggingface/transformers": "4.3.2"
+  }
+}

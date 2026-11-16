@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike D1 WebGPU</title>
+<!-- SPIKE USA E GETTA, NON TESTATO SU WEBGPU DALL'AUTORE (vedi REPORT.md).
+     Serve a misurare download, caricamento, latenza e memoria nel browser.
+     Servirla con: npx serve docs/superpowers/spikes/d1-browser  (o python3 -m http.server) -->
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; }
+  pre { background: #f4f4f4; padding: .8rem; overflow: auto; }
+  button { font: inherit; padding: .5rem 1rem; }
+  select, input { font: inherit; }
+</style>
+</head>
+<body>
+<h1>Spike D1 · d1-omni-600M su WebGPU</h1>
+<p>
+  <label>Variante
+    <select id="variant">
+      <option value="model_q4">q4 (~245 MB)</option>
+      <option value="model_quantized">q8 (~406 MB)</option>
+    </select>
+  </label>
+  <button id="go">Scarica e misura</button>
+</p>
+<pre id="log">In attesa. Premendo il pulsante parte il download da Hugging Face.</pre>
+
+<script type="module">
+import { AutoTokenizer, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1/dist/transformers.min.js';
+import { classify } from './d1-core.mjs';
+
+// ?ort=<versione> per provare un'altra release di onnxruntime-web (predefinita: il build di sviluppo dello Space di Liquid).
+const ORT_VERSION = new URLSearchParams(location.search).get('ort') || '1.31.0-dev.20260914-8d85527a0';
+const ORT_BASE = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
+const ort = await import(ORT_BASE + 'ort.webgpu.bundle.min.mjs');
+ort.env.wasm.wasmPaths = ORT_BASE;
+ort.env.logLevel = 'error';
+env.allowLocalModels = false;
+
+const REPO = 'onnx-community/d1-omni-600M-ONNX';
+const BASE = `https://huggingface.co/${REPO}/resolve/main/`;
+const URLS = [
+  'https://paypal-secure.xyz/login',
+  'https://www.posteitaliane.it/',
+  'https://inps-rimborso-contributi.top/accedi',
+  'https://www.amazon.de/',
+];
+const $ = (id) => document.getElementById(id);
+const log = (s) => { $('log').textContent += '\n' + s; };
+
+async function fetchBytes(path) {
+  const res = await fetch(BASE + path);
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+$('go').addEventListener('click', async () => {
+  $('go').disabled = true;
+  $('log').textContent = '';
+  try {
+    log(`crossOriginIsolated: ${self.crossOriginIsolated}`);
+    const adapter = navigator.gpu ? await navigator.gpu.requestAdapter() : null;
+    if (!adapter) { log('NESSUN ADATTATORE WEBGPU: lo spike si ferma (la landing mostrerebbe l\'avviso).'); return; }
+    log(`adattatore WebGPU: ok, shader-f16 = ${adapter.features.has('shader-f16')}`);
+
+    const name = $('variant').value;
+    let t = performance.now();
+    const config = await (await fetch(BASE + 'config.json')).json();
+    const tok = await AutoTokenizer.from_pretrained(REPO);
+    log(`tokenizer: ${Math.round(performance.now() - t)} ms`);
+
+    t = performance.now();
+    const graph = await fetchBytes(`onnx/${name}.onnx`);
+    const data = await fetchBytes(`onnx/${name}.onnx_data`);
+    const dlMs = performance.now() - t;
+    log(`download: ${(data.length / 1e6).toFixed(0)} MB in ${Math.round(dlMs)} ms (con cache del browser, il secondo giro misura solo la cache)`);
+
+    t = performance.now();
+    const session = await ort.InferenceSession.create(graph, {
+      executionProviders: ['webgpu'], graphOptimizationLevel: 'all',
+      externalData: [{ path: `${name}.onnx_data`, data }],
+    });
+    log(`creazione sessione WebGPU: ${Math.round(performance.now() - t)} ms`);
+
+    const i64 = (a, dims) => new ort.Tensor('int64', BigInt64Array.from(a, (v) => BigInt(v)), dims);
+    const run = async ({ ids, markers, qtype }) => {
+      const L = ids.length, K = markers.length;
+      const out = await session.run({
+        input_ids: i64(ids, [1, L]),
+        attention_mask: i64(new Array(L).fill(1), [1, L]),
+        prefix_len: i64([0], [1]),
+        marker_pos: i64(markers, [1, K]),
+        marker_mask: i64(new Array(K).fill(1), [1, K]),
+        qtype: i64([qtype], [1]),
+      });
+      return await out.logits.getData();
+    };
+
+    for (let round = 0; round < 2; round++) {
+      log(round === 0 ? '--- primo giro (include la compilazione degli shader)' : '--- secondo giro');
+      for (const url of URLS) {
+        t = performance.now();
+        const r = await classify(tok, config, run, { url, has_password_field: true, form_action: null });
+        log(`${Math.round(performance.now() - t)} ms  p(phishing)=${r.phishing.toFixed(3)}  ${r.category}  ${url}`);
+      }
+    }
+    if (performance.memory) log(`heap JS: ${(performance.memory.usedJSHeapSize / 1e6).toFixed(0)} MB (la memoria GPU non è esposta: guardare Task Manager del browser)`);
+    log('FATTO. Copiare questo log nel REPORT.md.');
+  } catch (e) {
+    log('ERRORE: ' + (e && e.message ? e.message : e));
+  } finally {
+    $('go').disabled = false;
+  }
+});
+</script>
+</body>
+</html>

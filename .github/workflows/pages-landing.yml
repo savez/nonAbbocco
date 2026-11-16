@@ -11,6 +11,12 @@ name: pages-landing
 # sito al push successivo su `landing` (o rilanciando questo workflow su
 # `landing`): un cron qui non partirebbe, perché GitHub esegue i `schedule`
 # solo dal branch di default.
+#
+# Il secondo parere IA vive in `landing/ai/` (solo su questo branch): il deploy
+# lo pubblica in `_site/landing/` e fa girare `test/landing-ai.test.js` sulla
+# pagina appena generata, così un test rosso blocca la pubblicazione. I pesi
+# del modello NON si pubblicano: li scarica il browser del visitatore da
+# Hugging Face, dopo il consenso (vedi landing/ai/NOTICE.md).
 
 on:
   push:
@@ -45,11 +51,15 @@ jobs:
       - name: Generazione della pagina
         run: node tools/build-page.mjs
 
+      - name: Test del secondo parere IA
+        run: node --test test/landing-ai.test.js
+
       - name: Composizione del sito
         run: |
           mkdir -p _site
           cp simulator.html _site/index.html
           cp -r src _site/src
+          cp -r landing _site/landing
           cp -r assets _site/assets
           cp -r icons _site/icons
           echo "File pubblicati:" >> "$GITHUB_STEP_SUMMARY"

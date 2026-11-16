@@ -735,6 +735,35 @@ code {
 }
 .warnbox strong { display: block; margin-bottom: .3rem; }
 
+/* ─── Secondo parere IA ───────────────────────────────────────────────────────
+ *
+ * Neutro, di proposito: i colori dei verdetti (r1–r5, clear/notice/warn/flag)
+ * sono del motore. Il modello dà una stima, non un verdetto, e non deve poter
+ * sembrare più autorevole del motore.
+ */
+
+.ai {
+  margin-top: 1.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1.1rem 1.2rem;
+  background: var(--paper-sunk);
+}
+.ai__head { display: flex; flex-wrap: wrap; gap: .2rem 1rem; align-items: baseline; }
+.ai h3 { margin: 0; font-size: 1.05rem; }
+.ai__lede, .ai__note, .ai__credit { font-size: .85rem; color: var(--muted); max-width: var(--measure); }
+.ai__lede { margin: .5rem 0 0; }
+.ai__note { margin: .8rem 0 0; }
+.ai__box { margin-top: .9rem; font-size: .88rem; }
+.ai__box p { margin: 0 0 .5rem; max-width: var(--measure); }
+.ai__actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .8rem; }
+.ai__box .btn { font-size: .82rem; padding: .6rem .9rem; }
+.ai progress { width: min(22rem, 100%); vertical-align: middle; margin-right: .6rem; }
+#ai-progress-text { font-family: var(--mono); font-size: .75rem; color: var(--muted); margin-right: .8rem; }
+.ai__pct { font-family: var(--mono); font-size: 1.8rem; font-weight: 600; line-height: 1.1; margin-bottom: .3rem; }
+.ai__compare { color: var(--muted); }
+.ai__credit { margin: 1rem 0 0; padding-top: .8rem; border-top: 1px solid var(--rule-soft); font-size: .76rem; }
+
 /* ─── Il percorso che porta al rank ───────────────────────────────────────────
  *
  * Una scala di passi, non un diagramma a scatole e frecce. Il contenuto è

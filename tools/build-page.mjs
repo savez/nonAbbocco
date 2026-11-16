@@ -34,6 +34,7 @@ import { dirname, join } from 'node:path';
 import { RULES } from '../src/rules.js';
 import { RULE_MESSAGES, CATEGORY_LABELS, CATEGORY_QUESTIONS, RANK_LABELS, RANK_SUBTITLES } from '../src/messages.it.js';
 import { BRANDS } from '../src/brands.js';
+import { MODEL } from '../landing/ai/models.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const css = await readFile(join(root, 'tools', 'page-parts', 'style.css'), 'utf8');
@@ -190,6 +191,64 @@ const ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" 
 const ICON_COFFEE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><path d="M6 1v3M10 1v3M14 1v3"/></svg>';
 
 // ─── La pagina ───────────────────────────────────────────────────────────────
+
+// ─── Secondo parere IA ───────────────────────────────────────────────────────
+//
+// Un modello di decisione di Liquid AI (d1-omni-600M) gira nel browser del
+// visitatore, solo con WebGPU, e solo dopo il consenso. Non cambia il verdetto
+// del motore: lo affianca. Il codice sta in `landing/ai/`; qui c'è solo la
+// pagina. Il colore dei verdetti (r1–r5) è del motore: qui niente.
+const aiPanel = `    <div class="ai" id="ai">
+      <div class="ai__head">
+        <span class="eyebrow">Secondo parere</span>
+        <h3>Chiedilo a un modello IA</h3>
+      </div>
+      <p class="ai__lede">
+        Un piccolo modello di Liquid AI gira nel tuo browser e dà una stima, partendo solo
+        dall'indirizzo e dai campi qui sopra. Non cambia il verdetto del motore: lo affianca.
+      </p>
+
+      <div id="ai-unsupported" class="ai__note is-hidden">
+        Il secondo parere IA richiede WebGPU: prova con Chrome o Edge aggiornati, su computer.
+      </div>
+
+      <div id="ai-start" class="ai__box is-hidden">
+        <button class="btn btn--ghost" type="button" id="ai-run">Secondo parere IA</button>
+      </div>
+
+      <div id="ai-consent" class="ai__box is-hidden">
+        <p id="ai-consent-text"></p>
+        <div class="ai__actions">
+          <button class="btn btn--solid" type="button" id="ai-accept">Scarica e analizza</button>
+          <button class="btn btn--ghost" type="button" id="ai-decline">Non ora</button>
+        </div>
+      </div>
+
+      <div id="ai-progress" class="ai__box is-hidden" role="status">
+        <progress id="ai-bar" max="100" value="0"></progress>
+        <span id="ai-progress-text"></span>
+        <button class="btn btn--ghost" type="button" id="ai-cancel">Annulla</button>
+      </div>
+
+      <div id="ai-result" class="ai__box is-hidden" aria-live="polite">
+        <div class="ai__pct" id="ai-pct"></div>
+        <p id="ai-pct-text"></p>
+        <p id="ai-cat" class="is-hidden"><b id="ai-cat-text"></b></p>
+        <p id="ai-compare" class="ai__compare"></p>
+      </div>
+
+      <div id="ai-error" class="ai__box is-hidden" role="alert">
+        <p id="ai-error-text"></p>
+        <div class="ai__actions"><button class="btn btn--ghost" type="button" id="ai-retry">Riprova</button></div>
+      </div>
+
+      <p class="ai__credit">
+        Secondo parere con <a href="https://huggingface.co/${MODEL.repo}" rel="noopener"><code>d1-omni-600M</code></a>
+        di Liquid AI, sotto <a href="${MODEL.licenseUrl}" rel="noopener">${MODEL.license}</a>. I pesi
+        si scaricano da Hugging Face e non sono sotto licenza MIT: lo è il codice di questa pagina.
+      </p>
+    </div>
+`;
 
 const page = `<!DOCTYPE html>
 <html lang="it">
@@ -441,7 +500,8 @@ ${scale}
         </div>
       </div>
     </div>
-  </div>
+
+${aiPanel}  </div>
 </section>
 
 <!-- ─── Catalogo delle regole ────────────────────────────────────────────── -->
@@ -612,7 +672,9 @@ ${ruleCatalogue}
         </a>
         <p class="foot__note">
           Analisi interamente locale. Gli indirizzi che visiti non lasciano il browser e non
-          vengono registrati da nessuna parte.
+          vengono registrati da nessuna parte. L'estensione non fa chiamate di rete; il secondo
+          parere IA di questa pagina scarica un modello da Hugging Face solo dopo il tuo consenso,
+          e l'indirizzo che analizza non lascia comunque il browser.
         </p>
       </div>
       <div>
@@ -703,6 +765,12 @@ function run() {
     title,
     visibleText: urgency ? 'Verifica necessaria entro 24 ore o il conto sarà sospeso' : ''
   });
+
+  // Il secondo parere IA (landing/ai) parte dallo stesso input e dallo stesso
+  // rank: glieli passiamo, non glieli facciamo ricalcolare.
+  const detail = { rank: v.rank, input: { url, title, formAction: action || undefined, hasPassword: pwd, urgency } };
+  window.__SIM_LAST__ = detail;
+  document.dispatchEvent(new CustomEvent('sim:run', { detail }));
 
   const tone = ['r1', 'r1', 'r2', 'r3', 'r4', 'r5'][v.rank];
   const chip = $('rank-chip');
@@ -803,6 +871,127 @@ $('bypass-undo').addEventListener('click', () => { bypassed = false; run(); });
 
 document.querySelector('.preset[data-preset="typo"]')?.setAttribute('aria-pressed', 'true');
 run();
+</script>
+
+<script type="module">
+// Il secondo parere IA. Niente rete finché il visitatore non accetta: questo
+// script importa solo moduli locali, e runner.js (che scarica) solo con WebGPU.
+import { isWebGpuAvailable } from './landing/ai/support.js';
+import { analyzeUrl } from './landing/ai/controller.js';
+import { displayCategory } from './landing/ai/schema.js';
+import { RANK_LABELS } from './src/messages.it.js';
+
+const $ = (id) => document.getElementById(id);
+const show = (id, on) => $(id).classList.toggle("is-hidden", !on);
+const PHASES = ["ai-start", "ai-consent", "ai-progress", "ai-result", "ai-error"];
+const phase = (name) => { for (const id of PHASES) show(id, id === "ai-" + name); };
+
+const MODEL_MB = ${MODEL.approxMB};
+const RELATION = {
+  "concorde": "Motore e IA concordano.",
+  "ia-piu-severa": "Motore e IA non concordano: l'IA è più severa. Vale il verdetto del motore.",
+  "ia-meno-severa": "Motore e IA non concordano: l'IA è meno severa. Vale il verdetto del motore."
+};
+
+let last = window.__SIM_LAST__ || null;   // ultimo verdetto del simulatore: { rank, input }
+let runnerApi = null;                      // runner.js, importato solo con WebGPU
+let runner = null;
+let modelReady = false;
+let resultFor = null;                      // l'input a cui si riferisce il risultato mostrato
+let supported = false;
+
+document.addEventListener("sim:run", (e) => {
+  last = e.detail;
+  // Il risultato vale per l'input con cui è nato: se l'input cambia, sparisce.
+  if (resultFor !== null && resultFor !== JSON.stringify(last.input)) {
+    resultFor = null;
+    if (supported) phase("start");
+  }
+});
+
+function setProgress(p) {
+  const pct = Math.min(100, Math.round((p.loadedMB / p.totalMB) * 100));
+  $("ai-bar").value = pct;
+  $("ai-progress-text").textContent = Math.round(p.loadedMB) + " / " + p.totalMB + " MB";
+}
+
+function fail(message) {
+  $("ai-error-text").textContent = message;
+  phase("error");
+}
+
+async function analyze() {
+  phase("progress");
+  $("ai-bar").removeAttribute("value");
+  $("ai-progress-text").textContent = "Analisi in corso…";
+  show("ai-cancel", false);
+
+  const snapshot = last;
+  const out = await analyzeUrl(snapshot.input, snapshot.rank, runner);
+  if (out.status !== "ok") return fail(out.message);
+
+  const pct = Math.round(out.ai.phishing * 100);
+  $("ai-pct").textContent = pct + "%";
+  $("ai-pct-text").textContent = "L'IA stima il " + pct + "% di probabilità di phishing. È una stima, non un verdetto.";
+  const cat = displayCategory(out.ai);
+  show("ai-cat", cat !== null);
+  if (cat !== null) $("ai-cat-text").textContent = "Tipo di pagina: " + cat;
+  $("ai-compare").textContent = "Il motore dice «" + RANK_LABELS[snapshot.rank] + "» (" + snapshot.rank + "/5). " + RELATION[out.relation];
+  resultFor = JSON.stringify(snapshot.input);
+  phase("result");
+}
+
+async function start() {
+  if (!last) return;
+  if (modelReady) return analyze();
+
+  phase("progress");
+  show("ai-cancel", true);
+  $("ai-bar").value = 0;
+  $("ai-progress-text").textContent = "Preparo il modello…";
+  if (runner) runner.dispose();
+  runner = runnerApi.createRunner({ onProgress: setProgress });
+  try {
+    await runner.load();
+    modelReady = true;
+  } catch (e) {
+    if (e && e.name === "AbortError") return fail("Download annullato.");
+    return fail("Non riesco a caricare il modello: " + (e && e.message ? e.message : "errore sconosciuto") + ".");
+  }
+  return analyze();
+}
+
+$("ai-run").addEventListener("click", async () => {
+  if (!last) return;
+  if (modelReady) return analyze();
+  const cached = await runnerApi.isModelCached();
+  $("ai-consent-text").textContent = cached
+    ? "Il modello è già nel tuo browser: non scarico nulla."
+    : "Per darti un secondo parere scarico nel tuo browser un modello da circa " + MODEL_MB +
+      " MB da Hugging Face. Su rete cellulare consuma traffico. Hugging Face vede il tuo indirizzo IP, " +
+      "non l'indirizzo che stai analizzando: l'analisi avviene tutta qui, nel browser. " +
+      "Il modello resta nella cache del browser fino a quando cancelli i dati del sito.";
+  $("ai-accept").textContent = cached ? "Analizza" : "Scarica e analizza";
+  phase("consent");
+});
+$("ai-decline").addEventListener("click", () => phase("start"));
+$("ai-accept").addEventListener("click", start);
+$("ai-retry").addEventListener("click", start);
+$("ai-cancel").addEventListener("click", () => { if (runner) runner.cancel(); });
+
+try {
+  supported = await isWebGpuAvailable();
+  if (supported) {
+    runnerApi = await import("./landing/ai/runner.js");
+    phase("start");
+  } else {
+    for (const id of PHASES) show(id, false);
+    show("ai-unsupported", true);
+  }
+} catch (e) {
+  // Moduli non caricabili (per esempio da file://): senza motore non c'è nemmeno questo.
+  $("ai").classList.add("is-hidden");
+}
 </script>
 
 <script>
